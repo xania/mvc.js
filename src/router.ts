@@ -14,10 +14,12 @@ export type ActionResult = { dispose(); activate?(): Subscription | Subscription
 export class Router {
     private actions$: Rx.Observable<Route>;
     private active$: Rx.Subject<Route>;
+    public url = new UrlHelper(this, []);
 
-    constructor(passive$: Rx.Observable<Route>) {
+    constructor(passive$: Rx.Observable<Route>, public baseRoute: Route = []) {
         this.active$ = new Rx.Subject<Route>();
         this.actions$ = Rx.merge(passive$, this.active$);
+        this.url = new UrlHelper(this, baseRoute);
     }
 
     start<TAction, TActionResult extends ActionResult>(rootActionResult: TActionResult, viewEngine: ViewEngine<TAction, TActionResult>): Rx.Observable<Activation> {
@@ -101,10 +103,11 @@ export class Router {
         }
 
         const rootRouteResult = routeResult([], rootActionResult);
-        const rootUrl = new UrlHelper(this, []);
+        const rootUrl = this.url;
 
         return router.actions$
             .pipe(
+                Ro.map(route => startsWith(route, router.baseRoute) ? route.slice(router.baseRoute.length) : []),
                 Ro.distinctUntilChanged(routeCompare),
                 Ro.switchMap((remainingRoute) => {
                     var rootEntry = <RouteEntry<TAction, TActionResult>>{
@@ -237,4 +240,19 @@ export class Activation {
             subscriptions[i].unsubscribe();
         }
     }
+}
+
+function startsWith(route: Route, base: Route) {
+    if (base.length === 0)
+        return true;
+
+    if (base.length > route.length)
+        return false;
+
+    for (var i = 0; i < base.length; i++) {
+        if (pathCompare(base[i], route[i]) === false)
+            return false;
+    }
+
+    return true;
 }

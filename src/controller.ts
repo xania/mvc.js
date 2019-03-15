@@ -1,7 +1,7 @@
 import { IAction, ActionResolution, actionResolver, ActionResolverInput, IActionContext, Route } from "./action.js"
 
 const dynamicImport = (0, eval)('u=>import(u)');
-export function controllerAction<T>(modulePath: string, actionName?: string, defaultResolver?: ActionResolverInput<IAction<T>>): IAction<T> {
+export function controllerAction<T>(modulePath: string, actionName?: string, defaultResolver?: ActionResolverInput<IAction<T>>) {
     return {
         async execute(context: IActionContext): Promise<T> {
             try {

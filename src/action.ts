@@ -67,7 +67,7 @@ function routeTemplate(route: string | Route) {
     }
 }
 
-export type ActionResolver<TAction> = (route: Route) => ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
+export type ActionResolver<TAction> = (route: Route) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
 
 export interface IAction<TActionResult> {
     execute(context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>,
