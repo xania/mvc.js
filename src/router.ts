@@ -1,10 +1,6 @@
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
 import { Route, ActionResolver, ActionNotFound, ActionResolution, IActionContext } from "./action.js"
-import { isPromise } from 'rxjs/internal/util/isPromise.js';
-import { isInteropObservable } from 'rxjs/internal/util/isInteropObservable.js';
-import { fromPromise } from 'rxjs/internal/observable/fromPromise.js';
-import { fromObservable } from 'rxjs/internal/observable/fromObservable.js';
 import UrlHelper from "./url-helper.js";
 import { ChainCache } from "./chain-cache.js";
 
@@ -185,17 +181,18 @@ export function pathCompare(prev, next) {
     return true;
 }
 
-export function toObservable<T>(input: T | Rx.ObservableInput<T>): Rx.Observable<T> {
+export function toObservable<T>(input: T | Rx.SubscribableOrPromise<T>): Rx.Observable<T> {
     if (input === null && input === void 0) {
         return Rx.of(input as T);
     } else if (Rx.isObservable<T>(input)) {
         return input;
-    } else if (isInteropObservable(input)) {
-        return fromObservable(input, null);
-    } else if (isPromise(input)) {
-        return fromPromise(input);
-    } else {
-        return Rx.of(input as T);
+    } else if (isPromise(input)){
+        return Rx.from(input);
+    }
+    return Rx.of(input as T);
+
+    function isPromise(value): value is PromiseLike<T> {
+        return !!value && typeof value.subscribe !== 'function' && typeof value.then === 'function';
     }
 }
 
@@ -222,7 +219,7 @@ export type Renderer<T> = (value: T | Rx.ObservableInput<T> | ActionNotFound) =>
 export type Disposable = { dispose(); };
 
 export interface ViewEngine<TAction, TActionResult> {
-    execute(action: TAction, context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>;
+    execute(action: TAction, context: IActionContext): TActionResult | Rx.SubscribableOrPromise<TActionResult>;
     actionResolver(action: TAction): ActionResolver<TAction>;
     resolve(route: Route): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
     catch(error: Error, route: Route, context: RouteEntry<TAction, TActionResult>);
