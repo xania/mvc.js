@@ -1,6 +1,6 @@
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
-import { Route, ActionResolver, ActionNotFound, ActionResolution, IActionContext } from "./action.js"
+import { Route, ActionResolver, ActionNotFound, ActionResolution, IActionContext, IAction } from "./action.js"
 import UrlHelper from "./url-helper.js";
 import { ChainCache } from "./chain-cache.js";
 
@@ -50,20 +50,21 @@ export class Router {
                         if (nextRemainingRoute.length === 0) {
                             routeCache.truncateAt(routeIndex + 1);
                         }
-                        const url: UrlHelper = new UrlHelper(router, appliedRoute, routeEntry.url);
+                        const url: UrlHelper = new UrlHelper(router, appliedRoute, routeEntry.actionContext.url);
 
+                        const actionContext: IActionContext = { url, params: { ...routeEntry.actionContext.params, ...resolution.params } };
                         if (next && routeCompare(next.appliedRoute, appliedRoute)) {
                             return Rx.of(<RouteEntry<TAction, TActionResult>>{
                                 action,
+                                actionContext,
                                 routeResult: next,
-                                url,
                                 remainingRoute: nextRemainingRoute,
                                 resolver: viewEngine.actionResolver(action)
                             });
                         }
 
                         try {
-                            let nextResult$ = viewEngine.execute(resolution.action, { url, params: resolution.params });
+                            let nextResult$ = viewEngine.execute(resolution.action, actionContext);
 
                             return toObservable(nextResult$)
                                 .pipe(
@@ -72,8 +73,8 @@ export class Router {
                                         routeCache.setAt(routeIndex, nextRouteResult);
                                         const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
                                             action,
+                                            actionContext,
                                             routeResult: nextRouteResult,
-                                            url,
                                             remainingRoute: nextRemainingRoute,
                                             resolver: viewEngine.actionResolver(action)
                                         }
@@ -99,7 +100,7 @@ export class Router {
         }
 
         const rootRouteResult = routeResult([], rootActionResult);
-        const rootUrl = this.url;
+        const rootContext: IActionContext = { url: this.url, params: {}};
 
         return router.actions$
             .pipe(
@@ -107,7 +108,7 @@ export class Router {
                 Ro.distinctUntilChanged(routeCompare),
                 Ro.switchMap((remainingRoute) => {
                     var rootEntry = <RouteEntry<TAction, TActionResult>>{
-                        url: rootUrl,
+                        actionContext: rootContext,
                         appliedRoute: [],
                         routeResult: rootRouteResult,
                         remainingRoute,
@@ -117,7 +118,7 @@ export class Router {
                     return Rx.of(rootEntry).pipe(
                         Ro.expand(expandRoute),
                         Ro.filter(entry => entry.remainingRoute.length === 0 /* is last entry */),
-                        Ro.map(entry => router.activate(entry.routeResult.actionResult, entry.url.toAbsolute()))
+                        Ro.map(entry => router.activate(entry.routeResult.actionResult, entry.actionContext.url.toAbsolute()))
                     );
                 }),
                 Ro.reduce((old, active) => {
@@ -198,9 +199,9 @@ export function toObservable<T>(input: T | Rx.SubscribableOrPromise<T>): Rx.Obse
 
 export type RouteEntry<TAction, TActionResult> = {
     action?: TAction,
+    actionContext: IActionContext,
     routeResult?: RouteResult<TActionResult>,
     remainingRoute: Route;
-    url: UrlHelper,
     resolver?: ActionResolver<TAction>;
 }
 
