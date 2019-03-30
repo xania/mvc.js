@@ -1,4 +1,5 @@
-import { IAction, ActionResolution, actionResolver, ActionResolverInput, IActionContext, Route } from "./action.js"
+import { IAction, ActionResolution, ActionResolverInput, IActionContext, Route } from "./action.js"
+import actionResolver from "./action-resolver"
 
 const dynamicImport = (0, eval)('u=>import(u)');
 export function controllerAction<T>(modulePath: string, actionName?: string, defaultResolver?: ActionResolverInput<IAction<T>>) {
