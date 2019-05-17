@@ -1,7 +1,7 @@
 import { Router, RouteEntry, ActionResult, Activation, pathCompare } from "./router.js"
 import { ActionResolver, ActionNotFound, Route } from "./action.js"
 import * as Rx from "rxjs";
-import * as Ro from "rxjs/operators/index.js";
+import * as Ro from "rxjs/operators";
 
 // export const __hot = true;
 
