@@ -3,7 +3,9 @@ import actionResolver from "./action-resolver"
 
 const dynamicImport = (0, eval)('u=>import(u)');
 
-export function module<T>(factory: () => Promise<any>, defaultResolver?: ActionResolverInput<IAction<T>>) {
+type ModuleFactory = () => Promise<any>
+
+export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolverInput<IAction<T>>) {
     return {
         async execute(context: IActionContext): Promise<T> {
             try {
@@ -50,7 +52,7 @@ export function module<T>(factory: () => Promise<any>, defaultResolver?: ActionR
                     return resolution;
                 }
                 if (defaultResolver) {
-                    const res = actionResolver(defaultResolver);
+                    const res = actionResolver.call(null, defaultResolver);
                     return res(route) as ActionResolution<IAction<T>>;
                 }
             }
@@ -105,7 +107,7 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
                     return resolution;
                 }
                 if (defaultResolver) {
-                    const res = actionResolver(defaultResolver);
+                    const res = actionResolver.call(null, defaultResolver);
                     return res(route) as ActionResolution<IAction<T>>;
                 }
             }

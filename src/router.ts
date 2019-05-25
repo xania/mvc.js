@@ -1,8 +1,9 @@
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
-import { Route, ActionResolver, ActionNotFound, ActionResolution, IActionContext, IAction } from "./action.js"
+import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver } from "./action.js"
 import UrlHelper from "./url-helper.js";
 import { ChainCache } from "./chain-cache.js";
+
 
 type Subscription = { unsubscribe(); };
 export type ActionResult = { dispose(); activate?(): Subscription | Subscription[] }
@@ -10,7 +11,7 @@ export type ActionResult = { dispose(); activate?(): Subscription | Subscription
 export class Router {
     private actions$: Rx.Observable<Route>;
     private active$: Rx.Subject<Route>;
-    public url = new UrlHelper(this, []);
+    public url: UrlHelper;
 
     constructor(passive$: Rx.Observable<Route>, public baseRoute: Route = []) {
         this.active$ = new Rx.Subject<Route>();
@@ -22,7 +23,7 @@ export class Router {
         const router = this;
 
         function resolveRoute(resolver: ActionResolver<TAction>, route: Route): Rx.Observable<ActionResolution<TAction>> {
-            return toObservable(resolver && resolver(route));
+            return toObservable(resolver && resolver.call(null, route));
         }
 
         const routeCache = new ChainCache<RouteResult<TActionResult>>(d => {
@@ -225,8 +226,6 @@ export interface ViewEngine<TAction, TActionResult> {
     resolve(route: Route): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
     catch(error: Error, route: Route, context: RouteEntry<TAction, TActionResult>);
 }
-
-export type ActionResolver<TAction> = (route: Route) => ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
 
 export class Activation {
     constructor(public subscriptions: Subscription[]) {

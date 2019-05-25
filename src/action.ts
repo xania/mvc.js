@@ -12,10 +12,10 @@ export type ActionResolverInput<TAction> = { [route: string]: TAction } | Action
 
 
 export class ActionMap<TAction> {
-    private map: { route: Route, action: TAction }[] = [];
+    private map: { route: Route, action: TAction }[];
 
     public set(path: string, action: TAction): this {
-        this.map.push({ route: path.split("/").filter(x => !!x), action });
+        this.map = [ { route: path.split("/").filter(x => !!x), action } ];
         return this;
     }
 
