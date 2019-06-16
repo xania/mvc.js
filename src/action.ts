@@ -71,7 +71,7 @@ export type ActionResolver<TAction> = (route: Route, context: IActionContext) =>
 
 export interface IAction<TActionResult> {
     execute(context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>,
-    resolve?: ActionResolverInput<IAction<TActionResult>>
+    resolve?: ActionResolverInput<this>
 }
 export type IActionContext = { params: { [name: string]: any }, url: UrlHelper };
 
