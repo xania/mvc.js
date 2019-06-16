@@ -1,3 +1,5 @@
+import { IActionContext } from "./action";
+
 type Route = any[];
 type ActionResolution<TAction> = {
     action: TAction,
@@ -11,11 +13,10 @@ type MappingMatch = { appliedRoute: Route, params: ResolutionParams };
 type MaybePromise<T> = T | Promise<T>;
 type RouteMapping<TAction> = { match: RouteResolver, action: MaybePromise<TAction> };
 type PathResolver = (path: any) => boolean | { [key: string]: any };
-type RouteResolver = (route: Route) => false | MappingMatch;
+type RouteResolver = (route: Route, context: IActionContext) => false | MappingMatch;
 type RouteTemplate = PathTemplate[];
 
-
-type ActionResolver<TAction> = (route: Route) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
+type ActionResolver<TAction> = (route: Route, context: IActionContext) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
 
 type RouteResolverInput = RouteResolver | RouteTemplate;
 type RouteMappingInput<T> = RouteMapping<T> | [RouteResolverInput, MaybePromise<T> ]
@@ -26,11 +27,11 @@ export default function actionResolver<TAction>(input: ActionResolverInput<TActi
     if (typeof input === "function")
         return input;
     if (Array.isArray(input)) {
-        const mappings = input.map(x => mappingFromInput(x));
-        return function (route: Route) {
+        const mappings = input.map(mappingFromInput);
+        return function (route: Route, context: IActionContext) {
             for (var i = 0; i < mappings.length; i++) {
                 var mapping = mappings[i];
-                var match = mapping.match(route);
+                var match = mapping.match(route, context);
                 if (match) {
                     return {
                         action: mapping.action,
@@ -56,15 +57,8 @@ export default function actionResolver<TAction>(input: ActionResolverInput<TActi
 
 export function routeMapping<TAction>(resolver: RouteResolver, action: MaybePromise<TAction>): RouteMapping<TAction> {
     return {
-        match(route: Route) {
-            return resolver(route);
-            // if (params) {
-            //     return {
-            //         params,
-            //         appliedRoute: route
-            //     }
-            // }
-            // return false;
+        match(route: Route, context: IActionContext) {
+            return resolver(route, context);
         },
         action
     };
@@ -72,7 +66,7 @@ export function routeMapping<TAction>(resolver: RouteResolver, action: MaybeProm
 
 export function routeResolver(routeTemplate: RouteTemplate): RouteResolver {
     var pathResolvers = routeTemplate.map(pathResolver);
-    return function (route: Route) {
+    return function (route: Route, context: IActionContext) {
         var params: ResolutionParams = {};
         for (let i = 0; i < pathResolvers.length; i++) {
             let path = route[i];
@@ -107,20 +101,6 @@ export function pathResolver(pathTemplate: PathTemplate): PathResolver {
             }
         }
     }
-}
-
-class Person {
-    [1234]: null
-}
-
-function action1() {
-}
-
-var mapping = routeMapping(routeResolver(['person', ':person']), action1);
-var match = mapping.match(['person', new Person()]);
-
-if (match !== false) {
-    console.log(match);
 }
 
 function fromObject<TAction>(mappings: RouteMappingObject<TAction>): ActionResolver<TAction> {

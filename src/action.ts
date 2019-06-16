@@ -19,7 +19,7 @@ export class ActionMap<TAction> {
         return this;
     }
 
-    resolve = (route: Route) => {
+    resolve = (route: Route, context: IActionContext) => {
         for (let entry of this.map) {
             let match = routeTemplate(entry.route).match(route);
             if (match) {
@@ -67,7 +67,7 @@ function routeTemplate(route: string | Route) {
     }
 }
 
-export type ActionResolver<TAction> = (route: Route) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
+export type ActionResolver<TAction> = (route: Route, context: IActionContext) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
 
 export interface IAction<TActionResult> {
     execute(context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>,
@@ -119,8 +119,8 @@ export function composeResolve<TActionResult>(x: ActionResolverInput<TActionResu
     const xResolver = actionResolver(x);
     const yResolver = actionResolver(y);
 
-    return function resolve(route: Route) {
-        const action = xResolver(route) || yResolver(route);
+    return function resolve(route: Route, context: IActionContext) {
+        const action = xResolver(route, context) || yResolver(route, context);
 
         return action;
     }

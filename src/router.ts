@@ -4,7 +4,6 @@ import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver
 import UrlHelper from "./url-helper";
 import { ChainCache } from "./chain-cache";
 
-
 export type ActionResult = { dispose(); activate?(): Rx.Unsubscribable | Rx.Unsubscribable[] }
 
 export class Router {
@@ -21,8 +20,8 @@ export class Router {
     start<TAction, TActionResult extends ActionResult>(rootActionResult: TActionResult, viewEngine: IViewEngine<TAction, TActionResult>): Rx.Observable<Activation> {
         const router = this;
 
-        function resolveRoute(resolver: ActionResolver<TAction>, route: Route): Rx.Observable<ActionResolution<TAction>> {
-            return toObservable(resolver && resolver.call(null, route));
+        function resolveRoute(resolver: ActionResolver<TAction>, route: Route, context: IActionContext): Rx.Observable<ActionResolution<TAction>> {
+            return toObservable(resolver && resolver.call(null, route, context));
         }
 
         const routeCache = new ChainCache<RouteResult<TActionResult>>(d => {
@@ -30,13 +29,13 @@ export class Router {
         });
 
         function expandRoute(routeEntry: RouteEntry<TAction, TActionResult>, routeIndex: number): Rx.Observable<RouteEntry<TAction, TActionResult>> {
-            const { remainingRoute, resolver } = routeEntry;
+            const { remainingRoute, resolver, actionContext: parentContext } = routeEntry;
 
             if (remainingRoute.length === 0) {
                 return Rx.empty();
             }
 
-            return resolveRoute(resolver, remainingRoute)
+            return resolveRoute(resolver, remainingRoute, parentContext)
                 .pipe(
                     Ro.mergeMap((resolution: ActionResolution<TAction>) => {
                         if (!resolution) {
@@ -50,9 +49,8 @@ export class Router {
                         if (nextRemainingRoute.length === 0) {
                             routeCache.truncateAt(routeIndex + 1);
                         }
-                        const url: UrlHelper = new UrlHelper(router, appliedRoute, routeEntry.actionContext.url);
-
-                        const actionContext: IActionContext = { url, params: { ...routeEntry.actionContext.params, ...resolution.params } };
+                        const url: UrlHelper = new UrlHelper(router, appliedRoute, parentContext.url);
+                        const actionContext: IActionContext = { url, params: { ...parentContext.params, ...resolution.params } };
                         if (next && routeCompare(next.appliedRoute, appliedRoute)) {
                             return Rx.of(<RouteEntry<TAction, TActionResult>>{
                                 action,
@@ -233,7 +231,7 @@ type SubscribableOrPromise<T> = Rx.Subscribable<T> | PromiseLike<T>;
 export interface IViewEngine<TAction, TActionResult> {
     execute(action: TAction, context: IActionContext): TActionResult | SubscribableOrPromise<TActionResult>;
     actionResolver(action: TAction): ActionResolver<TAction>;
-    resolve(route: Route): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
+    resolve(route: Route, context: IActionContext): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
     catch(error: Error, route: Route, context: RouteEntry<TAction, TActionResult>);
 }
 

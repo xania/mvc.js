@@ -23,7 +23,7 @@ export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolv
                 console.error(ex);
             }
         },
-        async resolve(route: Route): Promise<ActionResolution<IAction<T>>> {
+        async resolve(route: Route, context: IActionContext): Promise<ActionResolution<IAction<T>>> {
             if (!route || route.length === 0)
                 return null;
 
@@ -48,7 +48,7 @@ export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolv
 
                 var moduleResolve = actionResolver<IAction<T>>(module["resolve"]);
                 if (moduleResolve) {
-                    const resolution = moduleResolve(route) as ActionResolution<IAction<T>>;
+                    const resolution = moduleResolve(route, context) as ActionResolution<IAction<T>>;
                     return resolution;
                 }
                 if (defaultResolver) {
@@ -78,7 +78,7 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
                 console.error(ex);
             }
         },
-        async resolve(route: Route): Promise<ActionResolution<IAction<T>>> {
+        async resolve(route: Route, context: IActionContext): Promise<ActionResolution<IAction<T>>> {
             if (!route || route.length === 0)
                 return null;
 
@@ -103,7 +103,7 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
 
                 var moduleResolve = actionResolver<IAction<T>>(module["resolve"]);
                 if (moduleResolve) {
-                    const resolution = moduleResolve(route) as ActionResolution<IAction<T>>;
+                    const resolution = moduleResolve(route, context) as ActionResolution<IAction<T>>;
                     return resolution;
                 }
                 if (defaultResolver) {
