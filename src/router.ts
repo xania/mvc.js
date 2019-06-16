@@ -1,12 +1,11 @@
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
-import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver } from "./action.js"
-import UrlHelper from "./url-helper.js";
-import { ChainCache } from "./chain-cache.js";
+import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver } from "./action"
+import UrlHelper from "./url-helper";
+import { ChainCache } from "./chain-cache";
 
 
-type Subscription = { unsubscribe(); };
-export type ActionResult = { dispose(); activate?(): Subscription | Subscription[] }
+export type ActionResult = { dispose(); activate?(): Rx.Unsubscribable | Rx.Unsubscribable[] }
 
 export class Router {
     private actions$: Rx.Observable<Route>;
@@ -19,7 +18,7 @@ export class Router {
         this.url = new UrlHelper(this, baseRoute);
     }
 
-    start<TAction, TActionResult extends ActionResult>(rootActionResult: TActionResult, viewEngine: ViewEngine<TAction, TActionResult>): Rx.Observable<Activation> {
+    start<TAction, TActionResult extends ActionResult>(rootActionResult: TActionResult, viewEngine: IViewEngine<TAction, TActionResult>): Rx.Observable<Activation> {
         const router = this;
 
         function resolveRoute(resolver: ActionResolver<TAction>, route: Route): Rx.Observable<ActionResolution<TAction>> {
@@ -88,7 +87,7 @@ export class Router {
                             return catchError(ex);
                         }
                     })
-                )
+                );
 
                 function catchError(error) {
                     viewEngine.catch(error, remainingRoute, routeEntry)
@@ -151,10 +150,6 @@ export class Router {
     }
 }
 
-function uid(): string {
-    return new Date().getTime().toString();
-}
-
 function routeCompare(xv: any[], yv: any[]) {
     if (xv.length !== yv.length)
         return false;
@@ -183,18 +178,31 @@ export function pathCompare(prev, next) {
     return true;
 }
 
-export function toObservable<T>(input: T | Rx.SubscribableOrPromise<T>): Rx.Observable<T> {
+export function toObservable<T>(input: T | Rx.Subscribable<T> | PromiseLike<T>): Rx.Observable<T> {
     if (input === null && input === void 0) {
         return Rx.of(input as T);
     } else if (Rx.isObservable<T>(input)) {
         return input;
     } else if (isPromise(input)){
         return Rx.from(input);
+    } else if (isSubscribable(input)) {
+        return new Rx.Observable(input.subscribe.bind(input))
     }
-    return Rx.of(input as T);
 
-    function isPromise(value): value is PromiseLike<T> {
+    return Rx.of(input);
+
+    function isPromise(value): value is PromiseLike<unknown> {
         return !!value && typeof value.subscribe !== 'function' && typeof value.then === 'function';
+    }
+        
+    function isSubscribable(o: any): o is Rx.Subscribable<unknown> {
+        if (typeof o !== "object")
+            return false;
+        
+        if (typeof o.subscribe !== "function")
+            return false;
+        
+        return true;
     }
 }
 
@@ -220,15 +228,17 @@ export type RouteResult<TActionResult> = {
 export type Renderer<T> = (value: T | Rx.ObservableInput<T> | ActionNotFound) => Disposable;
 export type Disposable = { dispose(); };
 
-export interface ViewEngine<TAction, TActionResult> {
-    execute(action: TAction, context: IActionContext): TActionResult | Rx.SubscribableOrPromise<TActionResult>;
+type SubscribableOrPromise<T> = Rx.Subscribable<T> | PromiseLike<T>;
+
+export interface IViewEngine<TAction, TActionResult> {
+    execute(action: TAction, context: IActionContext): TActionResult | SubscribableOrPromise<TActionResult>;
     actionResolver(action: TAction): ActionResolver<TAction>;
     resolve(route: Route): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
     catch(error: Error, route: Route, context: RouteEntry<TAction, TActionResult>);
 }
 
 export class Activation {
-    constructor(public subscriptions: Subscription[]) {
+    constructor(public subscriptions: Rx.Unsubscribable[]) {
     }
 
     deactivate() {
