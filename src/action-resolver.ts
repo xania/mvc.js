@@ -23,6 +23,35 @@ type RouteMappingInput<T> = RouteMapping<T> | [RouteResolverInput, MaybePromise<
 type RouteMappingObject<T> = { [route: string]: MaybePromise<T> };
 type ActionResolverInput<T> = ActionResolver<T> | RouteMappingInput<T>[] | RouteMappingObject<T>
 
+export function combine<TAction>(...resolvers: ActionResolver<TAction>[]): ActionResolver<TAction> {
+    return (route: Route, context: IActionContext) => {
+        return tryResolve(route, context, 0)
+    }
+
+    function tryResolve(route: Route, context: IActionContext, index: number) {
+        var resolver = resolvers[index];
+        if (!resolver)
+            return null;
+        
+        var resolution = resolver(route, context);
+        if (!resolution) 
+            return tryResolve(route, context, index + 1);
+        
+        if (isPromise(resolution)) {
+            return resolution.then(r => {
+                return r || tryResolve(route, context, index + 1);
+            })
+        }
+
+        return resolution;
+    }
+
+    function isPromise(value): value is PromiseLike<unknown> {
+        return !!value && typeof value.subscribe !== 'function' && typeof value.then === 'function';
+    }
+
+}
+
 export default function actionResolver<TAction>(input: ActionResolverInput<TAction>): ActionResolver<TAction> {
     if (typeof input === "function")
         return input;

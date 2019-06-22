@@ -17,7 +17,11 @@ export class Router {
         this.url = new UrlHelper(this, baseRoute);
     }
 
-    start<TAction, TActionResult extends ActionResult>(rootActionResult: TActionResult, viewEngine: IViewEngine<TAction, TActionResult>): Rx.Observable<Activation> {
+    start<TAction, TActionResult extends ActionResult>(
+        rootActionResult: TActionResult,
+        viewEngine: IViewEngine<TAction, TActionResult>
+    ): Rx.Observable<Activation> {
+
         const router = this;
 
         function resolveRoute(resolver: ActionResolver<TAction>, route: Route, context: IActionContext): Rx.Observable<ActionResolution<TAction>> {
@@ -87,18 +91,18 @@ export class Router {
                     })
                 );
 
-                function catchError(error) {
-                    viewEngine.catch(error, remainingRoute, routeEntry)
+            function catchError(error) {
+                viewEngine.catch(error, remainingRoute, routeEntry)
 
-                    return Rx.of(<RouteEntry<TAction, TActionResult>>{
-                        ...routeEntry,
-                        remainingRoute: []
-                    });
-                }
+                return Rx.of(<RouteEntry<TAction, TActionResult>>{
+                    ...routeEntry,
+                    remainingRoute: []
+                });
+            }
         }
 
         const rootRouteResult = routeResult([], rootActionResult);
-        const rootContext: IActionContext = { url: this.url, params: {}};
+        const rootContext: IActionContext = { url: this.url, params: {} };
 
         return router.actions$
             .pipe(
@@ -110,13 +114,13 @@ export class Router {
                         appliedRoute: [],
                         routeResult: rootRouteResult,
                         remainingRoute,
-                        resolver: viewEngine.resolve
+                        resolver: viewEngine.rootResolve
                     };
 
                     return Rx.of(rootEntry).pipe(
                         Ro.expand(expandRoute),
                         Ro.filter(entry => entry.remainingRoute.length === 0 /* is last entry */),
-                        Ro.map(entry => router.activate(entry.routeResult.actionResult, entry.actionContext.url.toAbsolute()))
+                        Ro.map(entry => activate(entry.routeResult.actionResult, entry.actionContext.url.toAbsolute()))
                     );
                 }),
                 Ro.reduce((old, active) => {
@@ -124,19 +128,18 @@ export class Router {
                     return active;
                 })
             );
-    }
 
-    activate(actionResult: ActionResult, route: Route): Activation {
-        if (actionResult && actionResult.activate) {
-            const subscriptions = actionResult.activate();
+        function activate(actionResult: TActionResult, route: Route): Activation {
+            const subscriptions = viewEngine.activate(actionResult);
             if (Array.isArray(subscriptions)) {
                 if (subscriptions.length > 0)
-                    return new Activation(subscriptions)
+                    return new Activation(subscriptions, route);
             } else if (subscriptions) {
-                return new Activation([subscriptions])
+                return new Activation([subscriptions], route);
             }
+            return new Activation([], route);
         }
-        return null;
+
     }
 
     public push(route: string | Route) {
@@ -181,7 +184,7 @@ export function toObservable<T>(input: T | Rx.Subscribable<T> | PromiseLike<T>):
         return Rx.of(input as T);
     } else if (Rx.isObservable<T>(input)) {
         return input;
-    } else if (isPromise(input)){
+    } else if (isPromise(input)) {
         return Rx.from(input);
     } else if (isSubscribable(input)) {
         return new Rx.Observable(input.subscribe.bind(input))
@@ -192,14 +195,14 @@ export function toObservable<T>(input: T | Rx.Subscribable<T> | PromiseLike<T>):
     function isPromise(value): value is PromiseLike<unknown> {
         return !!value && typeof value.subscribe !== 'function' && typeof value.then === 'function';
     }
-        
+
     function isSubscribable(o: any): o is Rx.Subscribable<unknown> {
         if (typeof o !== "object")
             return false;
-        
+
         if (typeof o.subscribe !== "function")
             return false;
-        
+
         return true;
     }
 }
@@ -228,15 +231,16 @@ export type Disposable = { dispose(); };
 
 type SubscribableOrPromise<T> = Rx.Subscribable<T> | PromiseLike<T>;
 
-export interface IViewEngine<TAction, TActionResult> {
-    execute(action: TAction, context: IActionContext): TActionResult | SubscribableOrPromise<TActionResult>;
+export interface IViewEngine<TAction, TComponent> {
+    execute(action: TAction, context: IActionContext): TComponent | SubscribableOrPromise<TComponent>;
+    activate(actionResult: TComponent): Rx.Unsubscribable | Rx.Unsubscribable[];
     actionResolver(action: TAction): ActionResolver<TAction>;
-    resolve(route: Route, context: IActionContext): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
-    catch(error: Error, route: Route, context: RouteEntry<TAction, TActionResult>);
+    rootResolve(route: Route, context: IActionContext): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
+    catch(error: Error, route: Route, context: RouteEntry<TAction, TComponent>);
 }
 
 export class Activation {
-    constructor(public subscriptions: Rx.Unsubscribable[]) {
+    constructor(public subscriptions: Rx.Unsubscribable[], public route: Route) {
     }
 
     deactivate() {

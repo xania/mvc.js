@@ -1,15 +1,15 @@
 import actionResolver from "./action-resolver";
-import { toObservable, IViewEngine, RouteEntry } from "./router";
+import { toObservable, IViewEngine, RouteEntry, Activation } from "./router";
 import { IActionContext, ActionResolver, Route, IAction } from "./action";
-import { Observable } from "rxjs";
-import { map } from "rxjs/operators";
+import * as Rx from "rxjs";
+import * as Ro from "rxjs/operators";
 
-export class ViewEngine<TAction extends IAction<any>, TViewResult> implements IViewEngine<TAction, TViewResult> {
+export class ViewEngine<T, TViewResult extends ActionResult> implements IViewEngine<IAction<T>, TViewResult> {
 
-    constructor(public asActionResult: (a:any) => TViewResult, public resolve: ActionResolver<TAction>, public actionContext?: any) {
+    constructor(public asActionResult: (a:any) => TViewResult, public rootResolve: ActionResolver<IAction<T>>, public actionContext?: any) {
     }
 
-    execute(action: ((context: IActionContext) => any) | TAction, context: IActionContext): Observable<TViewResult> {
+    execute(action: ((context: IActionContext) => T) | IAction<T>, context: IActionContext): Rx.Observable<TViewResult> {
         const actionContext: IActionContext = { ...context, ...(this.actionContext || {}) };
         const actionResult: any = action && (
             (typeof action === "function")
@@ -18,16 +18,22 @@ export class ViewEngine<TAction extends IAction<any>, TViewResult> implements IV
         );
 
         return toObservable(actionResult).pipe(
-            map(this.asActionResult)
+            Ro.map(this.asActionResult)
         )
     }
 
-    actionResolver(action: TAction): ActionResolver<TAction> {
-        return actionResolver<TAction>(action.resolve)
+    actionResolver(action: IAction<T>): ActionResolver<IAction<T>> {
+        return actionResolver<IAction<T>>(action.resolve)
     }
 
-    catch(error: Error, route: Route, context: RouteEntry<TAction, TViewResult>) {
+    catch(error: Error, route: Route, context: RouteEntry<IAction<T>, TViewResult>) {
         console.error(error);
     }
+
+    activate(actionResult: TViewResult): Rx.Unsubscribable | Rx.Unsubscribable[] {
+        return actionResult && actionResult.activate();
+    }
 }
+
+type ActionResult = { activate?(): Rx.Unsubscribable | Rx.Unsubscribable[] }
 

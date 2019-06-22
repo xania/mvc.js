@@ -1,4 +1,4 @@
-import { Router, RouteEntry, ActionResult, Activation, pathCompare } from "./router.js"
+import { Router, RouteEntry, ActionResult, Activation, pathCompare, IViewEngine } from "./router.js"
 import { Route } from "./action.js"
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
@@ -55,9 +55,15 @@ export class BrowserRouter extends Router {
         }
     }
 
-    activate(actionResult: ActionResult, route: Route): Activation {
-        pushPath("/" + this.basepath.concat(route).join("/"));
-        return super.activate(actionResult, route);
+    start<TAction, TActionResult extends ActionResult>(
+        rootActionResult: TActionResult,
+        viewEngine: IViewEngine<TAction, TActionResult>
+    ): Rx.Observable<Activation> {
+        return super.start(rootActionResult, viewEngine).pipe(
+            Ro.tap(a => {
+                pushPath("/" + this.basepath.concat(a.route).join("/"));
+            })
+        )
     }
 }
 
