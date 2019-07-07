@@ -6,20 +6,10 @@ import * as Ro from "rxjs/operators";
 
 export class ViewEngine<T, TViewResult extends ActionResult> implements IViewEngine<IAction<T>, TViewResult> {
 
-    constructor(public asActionResult: (a:any) => TViewResult, public rootResolve: ActionResolver<IAction<T>>, public actionContext?: any) {
-    }
-
-    execute(action: ((context: IActionContext) => T) | IAction<T>, context: IActionContext): Rx.Observable<TViewResult> {
-        const actionContext: IActionContext = { ...context, ...(this.actionContext || {}) };
-        const actionResult: any = action && (
-            (typeof action === "function")
-                ? action(actionContext)
-                : action.execute(actionContext)
-        );
-
-        return toObservable(actionResult).pipe(
-            Ro.map(this.asActionResult)
-        )
+    constructor(
+        public execute: (action: ((context: IActionContext) => T) | IAction<T>, context: IActionContext) => TViewResult | Rx.Observable<TViewResult>, 
+        public rootResolve: ActionResolver<IAction<T>>, 
+        public actionContext?: any) {
     }
 
     resolveRoute(action: IAction<T>, route: Route, context: IActionContext): Rx.Observable<ActionResolution<IAction<T>>> {
@@ -42,4 +32,3 @@ export class ViewEngine<T, TViewResult extends ActionResult> implements IViewEng
 }
 
 type ActionResult = { activate?(): Rx.Unsubscribable | Rx.Unsubscribable[] }
-

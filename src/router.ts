@@ -39,9 +39,9 @@ export class Router {
                 return Rx.empty();
             }
 
-            var d = resolveRoute(resolver, remainingRoute, parentContext)
+            return resolveRoute(resolver, remainingRoute, parentContext)
                 .pipe(
-                    Ro.map((resolution: ActionResolution<TAction>) => {
+                    Ro.mergeMap((resolution: ActionResolution<TAction>) => {
                         if (!resolution) {
                             routeCache.truncateAt(routeIndex);
                             return catchError(new Error("not found"))
@@ -53,57 +53,48 @@ export class Router {
                         if (nextRemainingRoute.length === 0) {
                             routeCache.truncateAt(routeIndex + 1);
                         }
+
+                        const actionContext = createContext(parentContext, appliedRoute, resolution.params);
                         if (next && routeCompare(next.appliedRoute, appliedRoute)) {
-                            return (<RouteEntry<TAction, TActionResult>>{
+                            return Rx.of(<RouteEntry<TAction, TActionResult>>{
                                 action,
+                                actionContext,
                                 routeResult: next,
                                 remainingRoute: nextRemainingRoute,
                                 resolver: viewEngine.actionResolver(action)
                             });
                         }
-                        const nextRouteResult = routeResult<TActionResult>(appliedRoute, null);
-                        routeCache.setAt(routeIndex, nextRouteResult);
-                        const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
-                            action,
-                            actionContext: createContext(parentContext, appliedRoute, resolution.params),
-                            routeResult: nextRouteResult,
-                            remainingRoute: nextRemainingRoute,
-                            resolver: viewEngine.actionResolver(action)
+
+                        try {
+                            let nextResult$ = viewEngine.execute(resolution.action, actionContext);
+
+                            return toObservable(nextResult$)
+                                .pipe(
+                                    Ro.map(nextResult => {
+                                        const nextRouteResult = routeResult(appliedRoute, nextResult);
+                                        routeCache.setAt(routeIndex, nextRouteResult);
+                                        const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
+                                            action,
+                                            actionContext,
+                                            routeResult: nextRouteResult,
+                                            remainingRoute: nextRemainingRoute,
+                                            resolver: viewEngine.actionResolver(action)
+                                        }
+                                        return nextRouteEntry;
+                                    }),
+                                    Ro.catchError(catchError)
+                                )
                         }
-                        return nextRouteEntry;
-
-                        // try {
-                        //     let nextResult$ = viewEngine.execute(resolution.action, actionContext);
-
-                        //     return toObservable(nextResult$)
-                        //         .pipe(
-                        //             Ro.map(nextResult => {
-                        //                 const nextRouteResult = routeResult(appliedRoute, nextResult);
-                        //                 routeCache.setAt(routeIndex, nextRouteResult);
-                        //                 const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
-                        //                     action,
-                        //                     actionContext,
-                        //                     routeResult: nextRouteResult,
-                        //                     remainingRoute: nextRemainingRoute,
-                        //                     resolver: viewEngine.actionResolver(action)
-                        //                 }
-                        //                 return nextRouteEntry;
-                        //             }),
-                        //             Ro.catchError(catchError)
-                        //         )
-                        // }
-                        // catch (ex) {
-                        //     return catchError(ex);
-                        // }
+                        catch (ex) {
+                            return catchError(ex);
+                        }
                     })
                 );
-
-            return d;
 
             function catchError(error) {
                 viewEngine.catch(error, remainingRoute, routeEntry)
 
-                return (<RouteEntry<TAction, TActionResult>>{
+                return Rx.of(<RouteEntry<TAction, TActionResult>>{
                     ...routeEntry,
                     remainingRoute: []
                 });
@@ -226,7 +217,7 @@ export type RouteEntry<TAction, TActionResult> = {
     resolver?: ActionResolver<TAction>;
 }
 
-function routeResult<TActionResult>(appliedRoute: Route, actionResult: null): RouteResult<TActionResult> {
+function routeResult<TActionResult>(appliedRoute: Route, actionResult: TActionResult): RouteResult<TActionResult> {
     return {
         appliedRoute,
         actionResult
@@ -235,7 +226,7 @@ function routeResult<TActionResult>(appliedRoute: Route, actionResult: null): Ro
 
 export type RouteResult<TActionResult> = {
     appliedRoute: Route,
-    actionResult: null
+    actionResult: TActionResult
 };
 export type Renderer<T> = (value: T | Rx.ObservableInput<T> | ActionNotFound) => Disposable;
 export type Disposable = { dispose(); };
