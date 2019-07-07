@@ -23,16 +23,16 @@ export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolv
                 console.error(ex);
             }
         },
-        async resolve(route: Route, context: IActionContext): Promise<ActionResolution<IAction<T>>> {
+        async resolve(route: Route, parentContext: IActionContext): Promise<ActionResolution<IAction<T>>> {
             if (!route || route.length === 0)
                 return null;
 
             var module = await factory();
             var actionNames = Object.keys(module).filter(a => a && a !== "default" && typeof module[a] === "function")
 
-            return resolve(route);
+            return resolve(route, parentContext);
 
-            function resolve(route: Route) {
+            function resolve(route: Route, parentContext: IActionContext) {
                 for (var actionName of actionNames.filter(a => a.toLowerCase() === route[0].toLowerCase())) {
                     const action: IAction<T> = {
                         execute: module[actionName],
@@ -48,12 +48,12 @@ export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolv
 
                 var moduleResolve = actionResolver<IAction<T>>(module["resolve"]);
                 if (moduleResolve) {
-                    const resolution = moduleResolve(route, context) as ActionResolution<IAction<T>>;
+                    const resolution = moduleResolve(route, parentContext) as ActionResolution<IAction<T>>;
                     return resolution;
                 }
                 if (defaultResolver) {
                     const res = actionResolver.call(null, defaultResolver);
-                    return res(route) as ActionResolution<IAction<T>>;
+                    return res(route, parentContext) as ActionResolution<IAction<T>>;
                 }
             }
         }
@@ -78,16 +78,16 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
                 console.error(ex);
             }
         },
-        async resolve(route: Route, context: IActionContext): Promise<ActionResolution<IAction<T>>> {
+        async resolve(route: Route, parentContext: IActionContext): Promise<ActionResolution<IAction<T>>> {
             if (!route || route.length === 0)
                 return null;
 
             var module = await dynamicImport(modulePath)
             var actionNames = Object.keys(module).filter(a => a && a !== "default" && typeof module[a] === "function")
 
-            return resolve(route);
+            return resolve(route, parentContext);
 
-            function resolve(route: Route) {
+            function resolve(route: Route, parentContext: IActionContext) {
                 for (var actionName of actionNames.filter(a => a.toLowerCase() === route[0].toLowerCase())) {
                     const action: IAction<T> = {
                         execute: module[actionName],
@@ -103,12 +103,12 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
 
                 var moduleResolve = actionResolver<IAction<T>>(module["resolve"]);
                 if (moduleResolve) {
-                    const resolution = moduleResolve(route, context) as ActionResolution<IAction<T>>;
+                    const resolution = moduleResolve(route, parentContext) as ActionResolution<IAction<T>>;
                     return resolution;
                 }
                 if (defaultResolver) {
                     const res = actionResolver.call(null, defaultResolver);
-                    return res(route) as ActionResolution<IAction<T>>;
+                    return res(route, parentContext) as ActionResolution<IAction<T>>;
                 }
             }
         }

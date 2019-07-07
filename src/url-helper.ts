@@ -13,6 +13,10 @@ export default class UrlHelper {
             throw "argument 'router' is null"
     }
 
+    createChild(route: Route) {
+        return new UrlHelper(this.router, route, this);
+    }
+
     relative(...route: Route) {
         let { router } = this;
         let self = this;

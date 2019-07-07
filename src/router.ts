@@ -1,6 +1,6 @@
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
-import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver } from "./action"
+import { Route, ActionNotFound, ActionResolution, IActionContext, ActionResolver, createContext } from "./action"
 import UrlHelper from "./url-helper";
 import { ChainCache } from "./chain-cache";
 
@@ -29,7 +29,7 @@ export class Router {
         }
 
         const routeCache = new ChainCache<RouteResult<TActionResult>>(d => {
-            return d && d.actionResult && d.actionResult.dispose();
+            // return d && d.actionResult && d.actionResult.dispose();
         });
 
         function expandRoute(routeEntry: RouteEntry<TAction, TActionResult>, routeIndex: number): Rx.Observable<RouteEntry<TAction, TActionResult>> {
@@ -39,9 +39,9 @@ export class Router {
                 return Rx.empty();
             }
 
-            return resolveRoute(resolver, remainingRoute, parentContext)
+            var d = resolveRoute(resolver, remainingRoute, parentContext)
                 .pipe(
-                    Ro.mergeMap((resolution: ActionResolution<TAction>) => {
+                    Ro.map((resolution: ActionResolution<TAction>) => {
                         if (!resolution) {
                             routeCache.truncateAt(routeIndex);
                             return catchError(new Error("not found"))
@@ -53,55 +53,64 @@ export class Router {
                         if (nextRemainingRoute.length === 0) {
                             routeCache.truncateAt(routeIndex + 1);
                         }
-                        const url: UrlHelper = new UrlHelper(router, appliedRoute, parentContext.url);
-                        const actionContext: IActionContext = { url, params: { ...parentContext.params, ...resolution.params } };
                         if (next && routeCompare(next.appliedRoute, appliedRoute)) {
-                            return Rx.of(<RouteEntry<TAction, TActionResult>>{
+                            return (<RouteEntry<TAction, TActionResult>>{
                                 action,
-                                actionContext,
                                 routeResult: next,
                                 remainingRoute: nextRemainingRoute,
                                 resolver: viewEngine.actionResolver(action)
                             });
                         }
-
-                        try {
-                            let nextResult$ = viewEngine.execute(resolution.action, actionContext);
-
-                            return toObservable(nextResult$)
-                                .pipe(
-                                    Ro.map(nextResult => {
-                                        const nextRouteResult = routeResult(appliedRoute, nextResult);
-                                        routeCache.setAt(routeIndex, nextRouteResult);
-                                        const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
-                                            action,
-                                            actionContext,
-                                            routeResult: nextRouteResult,
-                                            remainingRoute: nextRemainingRoute,
-                                            resolver: viewEngine.actionResolver(action)
-                                        }
-                                        return nextRouteEntry;
-                                    }),
-                                    Ro.catchError(catchError)
-                                )
+                        const nextRouteResult = routeResult<TActionResult>(appliedRoute, null);
+                        routeCache.setAt(routeIndex, nextRouteResult);
+                        const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
+                            action,
+                            actionContext: createContext(parentContext, appliedRoute, resolution.params),
+                            routeResult: nextRouteResult,
+                            remainingRoute: nextRemainingRoute,
+                            resolver: viewEngine.actionResolver(action)
                         }
-                        catch (ex) {
-                            return catchError(ex);
-                        }
+                        return nextRouteEntry;
+
+                        // try {
+                        //     let nextResult$ = viewEngine.execute(resolution.action, actionContext);
+
+                        //     return toObservable(nextResult$)
+                        //         .pipe(
+                        //             Ro.map(nextResult => {
+                        //                 const nextRouteResult = routeResult(appliedRoute, nextResult);
+                        //                 routeCache.setAt(routeIndex, nextRouteResult);
+                        //                 const nextRouteEntry: RouteEntry<TAction, TActionResult> = {
+                        //                     action,
+                        //                     actionContext,
+                        //                     routeResult: nextRouteResult,
+                        //                     remainingRoute: nextRemainingRoute,
+                        //                     resolver: viewEngine.actionResolver(action)
+                        //                 }
+                        //                 return nextRouteEntry;
+                        //             }),
+                        //             Ro.catchError(catchError)
+                        //         )
+                        // }
+                        // catch (ex) {
+                        //     return catchError(ex);
+                        // }
                     })
                 );
+
+            return d;
 
             function catchError(error) {
                 viewEngine.catch(error, remainingRoute, routeEntry)
 
-                return Rx.of(<RouteEntry<TAction, TActionResult>>{
+                return (<RouteEntry<TAction, TActionResult>>{
                     ...routeEntry,
                     remainingRoute: []
                 });
             }
         }
 
-        const rootRouteResult = routeResult([], rootActionResult);
+        const rootRouteResult = routeResult([], null);
         const rootContext: IActionContext = { url: this.url, params: {} };
 
         return router.actions$
@@ -120,7 +129,7 @@ export class Router {
                     return Rx.of(rootEntry).pipe(
                         Ro.expand(expandRoute),
                         Ro.filter(entry => entry.remainingRoute.length === 0 /* is last entry */),
-                        Ro.map(entry => activate(entry.routeResult.actionResult, entry.actionContext.url.toAbsolute()))
+                        Ro.map(entry => activate(entry))
                     );
                 }),
                 Ro.reduce((old, active) => {
@@ -129,7 +138,9 @@ export class Router {
                 })
             );
 
-        function activate(actionResult: TActionResult, route: Route): Activation {
+        function activate(entry: RouteEntry<TAction, TActionResult>): Activation {
+            const actionResult: TActionResult = entry.routeResult.actionResult;
+            const route: Route = entry.actionContext.url.toAbsolute();
             const subscriptions = viewEngine.activate(actionResult);
             if (Array.isArray(subscriptions)) {
                 if (subscriptions.length > 0)
@@ -215,7 +226,7 @@ export type RouteEntry<TAction, TActionResult> = {
     resolver?: ActionResolver<TAction>;
 }
 
-function routeResult<TActionResult>(appliedRoute: Route, actionResult: TActionResult): RouteResult<TActionResult> {
+function routeResult<TActionResult>(appliedRoute: Route, actionResult: null): RouteResult<TActionResult> {
     return {
         appliedRoute,
         actionResult
@@ -224,7 +235,7 @@ function routeResult<TActionResult>(appliedRoute: Route, actionResult: TActionRe
 
 export type RouteResult<TActionResult> = {
     appliedRoute: Route,
-    actionResult: TActionResult
+    actionResult: null
 };
 export type Renderer<T> = (value: T | Rx.ObservableInput<T> | ActionNotFound) => Disposable;
 export type Disposable = { dispose(); };
@@ -237,6 +248,7 @@ export interface IViewEngine<TAction, TComponent> {
     actionResolver(action: TAction): ActionResolver<TAction>;
     rootResolve(route: Route, context: IActionContext): ActionResolution<TAction> | Rx.ObservableInput<ActionResolution<TAction>> | null;
     catch(error: Error, route: Route, context: RouteEntry<TAction, TComponent>);
+    resolveRoute(action: TAction, route: Route, context: IActionContext): Rx.Observable<ActionResolution<TAction>>;
 }
 
 export class Activation {

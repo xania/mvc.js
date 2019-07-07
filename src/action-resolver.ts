@@ -1,4 +1,5 @@
-import { IActionContext } from "./action";
+import { IActionContext, createContext } from "./action";
+import { MaybePromise } from "./types";
 
 type Route = any[];
 type ActionResolution<TAction> = {
@@ -10,7 +11,6 @@ type ActionResolution<TAction> = {
 type ResolutionParams = { [key: string]: any };
 type PathTemplate = string | RegExp;
 type MappingMatch = { appliedRoute: Route, params: ResolutionParams };
-type MaybePromise<T> = T | Promise<T>;
 type RouteMapping<TAction> = { match: RouteResolver, action: MaybePromise<TAction> };
 type PathResolver = (path: any) => boolean | { [key: string]: any };
 type RouteResolver = (route: Route, context: IActionContext) => false | MappingMatch;
@@ -57,14 +57,17 @@ export default function actionResolver<TAction>(input: ActionResolverInput<TActi
         return input;
     if (Array.isArray(input)) {
         const mappings = input.map(mappingFromInput);
-        return function (route: Route, context: IActionContext) {
+        return function resolve(route: Route, parentContext: IActionContext): ActionResolution<TAction> {
             for (var i = 0; i < mappings.length; i++) {
                 var mapping = mappings[i];
-                var match = mapping.match(route, context);
+                var match = mapping.match(route, parentContext);
                 if (match) {
+                    const actionContext: IActionContext = createContext(parentContext, match.appliedRoute, match.params);
+
                     return {
                         action: mapping.action,
                         remainingRoute: route.slice(match.appliedRoute.length),
+                        actionContext,
                         ...match
                     } as ActionResolution<TAction>;
                 }

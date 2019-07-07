@@ -1,5 +1,6 @@
 import * as Rx from "rxjs";
 import UrlHelper from "./url-helper";
+import { MaybePromise } from "./types";
 
 export type Route = any[];
 export type ActionResolution<TAction> = {
@@ -67,7 +68,7 @@ function routeTemplate(route: string | Route) {
     }
 }
 
-export type ActionResolver<TAction> = (route: Route, context: IActionContext) => ActionResolution<TAction> | Promise<ActionResolution<TAction>> | null;
+export type ActionResolver<TAction> = (route: Route, context: IActionContext) => MaybePromise<ActionResolution<TAction>> | null;
 
 export interface IAction<TActionResult> {
     execute(context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>,
@@ -124,4 +125,10 @@ export function composeResolve<TActionResult>(x: ActionResolverInput<TActionResu
 
         return action;
     }
+}
+
+export function createContext(parentContext: IActionContext, route: Route, params: { [key: string]: any }) : IActionContext {
+    const url: UrlHelper = parentContext.url.createChild(route);
+    // new UrlHelper(router, appliedRoute, parentContext.url);
+    return { url, params: { ...parentContext.params, ...params } };
 }
