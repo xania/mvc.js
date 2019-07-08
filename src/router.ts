@@ -29,7 +29,7 @@ export class Router {
         }
 
         const routeCache = new ChainCache<RouteResult<TActionResult>>(d => {
-            // return d && d.actionResult && d.actionResult.dispose();
+            return d && d.actionResult && d.actionResult.dispose();
         });
 
         function expandRoute(routeEntry: RouteEntry<TAction, TActionResult>, routeIndex: number): Rx.Observable<RouteEntry<TAction, TActionResult>> {
