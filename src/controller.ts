@@ -1,8 +1,6 @@
 import { IAction, ActionResolution, ActionResolverInput, IActionContext, Route } from "./action.js"
 import actionResolver from "./action-resolver"
 
-const dynamicImport = (0, eval)('u=>import(u)');
-
 type ModuleFactory = () => Promise<any>
 
 export function module<T>(factory: ModuleFactory, defaultResolver?: ActionResolverInput<IAction<T>>) {
@@ -64,7 +62,7 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
     return {
         async execute(context: IActionContext): Promise<T> {
             try {
-                var module = await dynamicImport(modulePath)
+                var module = await import(modulePath)
                 var actionNames = [actionName, "default", "execute"];
 
                 for (var an of actionNames) {
@@ -82,7 +80,7 @@ export function controllerAction<T>(modulePath: string, actionName?: string, def
             if (!route || route.length === 0)
                 return null;
 
-            var module = await dynamicImport(modulePath)
+            var module = await import(modulePath)
             var actionNames = Object.keys(module).filter(a => a && a !== "default" && typeof module[a] === "function")
 
             return resolve(route, parentContext);
