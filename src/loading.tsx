@@ -21,8 +21,7 @@ export class PipeSubject<U, T> implements Subscribable<T> {
     constructor(private input$: Subject<U>, private output$: Observable<T>) {
     }
 
-    static create<U>() {
-        var input$ = new Subject<U>();
+    static create<U>(input$: Subject<U> = new Subject<U>()) {
         return new PipeSubject<U, U>(input$, input$);
     }
 
@@ -42,8 +41,10 @@ export class PipeSubject<U, T> implements Subscribable<T> {
     pipe<A, B, C, D, E, F, G, H, I>(op1: OperatorFunction<T, A>, op2: OperatorFunction<A, B>, op3: OperatorFunction<B, C>, op4: OperatorFunction<C, D>, op5: OperatorFunction<D, E>, op6: OperatorFunction<E, F>, op7: OperatorFunction<F, G>, op8: OperatorFunction<G, H>, op9: OperatorFunction<H, I>, ...operations: OperatorFunction<any, any>[]): PipeSubject<U, {}>;
     pipe(...operations: OperatorFunction<T, any>[]): PipeSubject<U, any> {
         const { output$ } = this;
-        var piped$ = output$.pipe.apply(output$, operations);
-        return new PipeSubject(this.input$, piped$);
+        return new PipeSubject(
+            this.input$, 
+            output$.pipe.apply(output$, operations)
+        );
     }
 
     subscribe(observer?: PartialObserver<T>): Unsubscribable;
