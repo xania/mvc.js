@@ -199,7 +199,7 @@ export function toObservable<T>(input: T | Rx.Subscribable<T> | PromiseLike<T>):
     }
 
     function isSubscribable(o: any): o is Rx.Subscribable<unknown> {
-        if (typeof o !== "object")
+        if (o === null || typeof o !== "object")
             return false;
 
         if (typeof o.subscribe !== "function")
