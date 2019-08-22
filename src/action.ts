@@ -74,7 +74,7 @@ export interface IAction<TActionResult> {
     execute(context: IActionContext): TActionResult | Rx.ObservableInput<TActionResult>,
     resolve?: ActionResolverInput<this>
 }
-export type IActionContext = { params: { [name: string]: any }, url: UrlHelper };
+export type IActionContext = { params: { [name: string]: unknown }, url: UrlHelper };
 
 export class ActionNotFound {
     constructor(public fullRoute: Route, public notFound: Route) {
