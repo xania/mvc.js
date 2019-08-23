@@ -1,4 +1,4 @@
-import { Router, RouteEntry, ActionResult, Activation, pathCompare, IViewEngine } from "./router.js"
+import { Router, ActionResult, Activation, pathCompare, IViewEngine } from "./router.js"
 import { Route } from "./action.js"
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
@@ -11,14 +11,13 @@ function browserRoutes(basepath: Route): Rx.Observable<Route> {
         Ro.distinctUntilChanged(),
         Ro.map((pathname: string) => pathname.split("/").filter(x => !!x)),
         Ro.filter(route => startsWith(route, basepath)),
-        Ro.map(route => route.slice(basepath.length)),
         Ro.tap(console.log)
     );
 }
 
 export class BrowserRouter extends Router {
     constructor(public basepath: Route = []) {
-        super(browserRoutes(basepath));
+        super(browserRoutes(basepath), basepath);
     }
 
     addClickListener(selectors) {
@@ -43,7 +42,7 @@ export class BrowserRouter extends Router {
 
                     if (href && anchor['pathname'] && location.host === anchor["host"]) {
                         const pathname = anchor['pathname'];
-                        pushPath(router.basepath.map(e => "/" + e).join() + pathname);
+                        pushPath(pathname);
                         router.push(pathname);
                         subject.next(pathname);
 
@@ -61,7 +60,7 @@ export class BrowserRouter extends Router {
     ): Rx.Observable<Activation> {
         return super.start(rootActionResult, viewEngine).pipe(
             Ro.tap(a => {
-                pushPath("/" + this.basepath.concat(a.route).join("/"));
+                pushPath("/" + a.route.join("/"));
             })
         )
     }
