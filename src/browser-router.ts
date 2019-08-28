@@ -10,13 +10,12 @@ function browserRoutes(basepath: Route): Rx.Observable<Route> {
         Ro.map(() => location.pathname),
         Ro.distinctUntilChanged(),
         Ro.map((pathname: string) => pathname.split("/").filter(x => !!x)),
-        Ro.filter(route => startsWith(route, basepath)),
-        Ro.tap(console.log)
+        Ro.filter(route => startsWith(route, basepath))
     );
 }
 
 export class BrowserRouter extends Router {
-    constructor(public basepath: Route = []) {
+    constructor(basepath: Route = []) {
         super(browserRoutes(basepath), basepath);
     }
 
@@ -43,7 +42,7 @@ export class BrowserRouter extends Router {
                     if (href && anchor['pathname'] && location.host === anchor["host"]) {
                         const pathname = anchor['pathname'];
                         pushPath(pathname);
-                        router.push(pathname);
+                        router.execute(pathname);
                         subject.next(pathname);
 
                         event.returnValue = false;
@@ -55,10 +54,9 @@ export class BrowserRouter extends Router {
     }
 
     start<TAction, TActionResult extends ActionResult>(
-        rootActionResult: TActionResult,
         viewEngine: IViewEngine<TAction, TActionResult>
     ): Rx.Observable<Activation> {
-        return super.start(rootActionResult, viewEngine).pipe(
+        return super.start(viewEngine).pipe(
             Ro.tap(a => {
                 pushPath("/" + a.route.join("/"));
             })

@@ -9,16 +9,17 @@ export type ActionResult = { dispose(); activate?(): Rx.Unsubscribable | Rx.Unsu
 export class Router {
     private actions$: Rx.Observable<Route>;
     private active$: Rx.Subject<Route>;
-    public url: UrlHelper;
 
     constructor(passive$: Rx.Observable<Route>, public baseRoute: Route = []) {
         this.active$ = new Rx.Subject<Route>();
         this.actions$ = Rx.merge(passive$, this.active$);
-        this.url = new UrlHelper(this, baseRoute);
+    }
+
+    toAbsolute(route: Route) {
+        return [ ...this.baseRoute, ...route ];
     }
 
     start<TAction, TActionResult extends ActionResult>(
-        rootActionResult: TActionResult,
         viewEngine: IViewEngine<TAction, TActionResult>
     ): Rx.Observable<Activation> {
 
@@ -102,7 +103,7 @@ export class Router {
         }
 
         const rootRouteResult = routeResult([], null);
-        const rootContext: IActionContext = { url: this.url, params: {} };
+        const rootContext: IActionContext = { url: new UrlHelper(this, this.baseRoute, 0), params: {} };
 
         return router.actions$
             .pipe(
@@ -144,7 +145,7 @@ export class Router {
 
     }
 
-    public push(route: string | Route) {
+    public execute(route: string | Route) {
         if (typeof route === "string") {
             this.active$.next(route.split('/').filter(x => !!x));
         } else {

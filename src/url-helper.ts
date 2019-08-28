@@ -1,5 +1,7 @@
 import { Route } from "./action.js"
-declare type RouterLike = { push(route: Route) }
+declare type RouterLike = { 
+    execute(route: Route);
+}
 
 export interface Link {
     route(): Route;
@@ -8,51 +10,24 @@ export interface Link {
 }
 
 export default class UrlHelper {
-    constructor(public router: RouterLike, public route: Route, public owner: UrlHelper = null) {
-        if (!router)
+    constructor(public router: RouterLike, public fullRoute: Route, public i: number, public owner: UrlHelper = null) {
+        if (!router) {
             throw "argument 'router' is null"
+        }
     }
 
-    createChild(route: Route) {
-        return new UrlHelper(this.router, route, this);
+    createChild(relativeRoute: Route) {
+        return new UrlHelper(this.router, this.toAbsolute(relativeRoute), 0, this);
     }
 
-    relative(...route: Route) {
-        let { router } = this;
-        let self = this;
-
-        function execute() {
-            router.push(toAbsolute(route));
-        }
-        // compat
-        execute.go = execute;
-        execute.route = () => {
-            return toAbsolute(route);
-        }
-        execute.toString = () => {
-            return "/" + toAbsolute(route).join("/");
-        }
-        return execute;
-
-        function toAbsolute(route: Route) {
-            let stack = [route];
-            let url: UrlHelper = self;
-            while (url) {
-                stack.push(url.route);
-                url = url.owner;
-            }
-            const retval = [];
-            for (var i = stack.length - 1; i >= 0; i--) {
-                retval.push.apply(retval, stack[i]);
-            }
-            return retval;
-        }
+    relative(...relativeRoute: Route) {
+        return this.absolute(...this.toAbsolute(relativeRoute));
     }
 
     absolute(...route: Route): Link {
         let { router } = this;
         function execute() {
-            router.push(route);
+            router.execute(route);
         }
         execute.go = execute;
         execute.route = () => route;
@@ -62,22 +37,12 @@ export default class UrlHelper {
         return execute;
     }
 
-    toAbsolute() {
-        let stack = [];
-        let url: UrlHelper = this;
-        while (url) {
-            stack.push(url.route);
-            url = url.owner;
-        }
-        const retval = [];
-        for (var i = stack.length - 1; i >= 0; i--) {
-            retval.push.apply(retval, stack[i]);
-        }
-        return retval;
+    toAbsolute(relativeRoute: Route = []) {
+        return [ ...this.fullRoute, ...relativeRoute ];
     }
 
     get self(): Link {
-        return this.absolute(...this.toAbsolute());
+        return this.absolute(...this.fullRoute);
     }
 
     get parent(): Link {
