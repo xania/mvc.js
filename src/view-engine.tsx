@@ -2,8 +2,6 @@ import actionResolver from "./action-resolver";
 import { toObservable, IViewEngine, RouteEntry } from "./router";
 import { IActionContext, ActionResolver, Route, IAction, ActionResolution } from "./action";
 import * as Rx from "rxjs";
-import * as Ro from "rxjs/operators";
-
 export class ViewEngine<T, TViewResult extends ActionResult> implements IViewEngine<IAction<T>, TViewResult> {
 
     constructor(
