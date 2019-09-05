@@ -19,17 +19,23 @@ export class BrowserRouter extends Router {
         super(browserRoutes(basepath), basepath);
     }
 
-    addClickListener(selectors) {
+    attach(dom) {
+        return this.addClickListener(dom);
+    }
+
+    addClickListener(selectors: string | HTMLElement) {
         let router = this;
-        let subject = new Rx.Subject();
 
-        if (typeof selectors === "string") {
-            document.querySelector(selectors).addEventListener("click", routerClick);
-        } else {
-            selectors.addEventListener("click", routerClick);
+        const target = typeof selectors === "string"
+            ? document.querySelector(selectors)
+            : selectors
+            ;
+        target.addEventListener("click", routerClick);
+        return {
+            dispose() {
+                target.removeEventListener("click", routerClick);
+            }
         }
-
-        return subject;
 
         function routerClick(event) {
             if (event.target) {
@@ -43,7 +49,7 @@ export class BrowserRouter extends Router {
                         const pathname = anchor['pathname'];
                         pushPath(pathname);
                         router.execute(pathname);
-                        subject.next(pathname);
+                        // subject.next(pathname);
 
                         event.returnValue = false;
                         return false;
