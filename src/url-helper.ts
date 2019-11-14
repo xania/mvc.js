@@ -7,6 +7,7 @@ export interface Link {
     route(): Route;
     toString(): string;
     go(): any;
+    relative(...route:Route): Link;
 }
 
 export default class UrlHelper {
@@ -33,6 +34,9 @@ export default class UrlHelper {
         execute.route = () => route;
         execute.toString = () => { 
             return "/" + route.join("/")
+        };
+        execute.relative = (...relativeRoute:Route) => {
+            return this.absolute(...route, ...relativeRoute);
         };
         return execute;
     }
