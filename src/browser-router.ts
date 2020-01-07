@@ -1,5 +1,5 @@
-import { Router, ActionResult, Activation, pathCompare, IViewEngine } from "./router.js"
-import { Route } from "./action.js"
+import { Router, ActionResult, Activation, pathCompare, IViewEngine } from "./router"
+import { Route } from "./action"
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
 

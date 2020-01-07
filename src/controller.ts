@@ -1,4 +1,4 @@
-import { IAction, ActionResolution, ActionResolverInput, IActionContext, Route } from "./action.js"
+import { IAction, ActionResolution, ActionResolverInput, IActionContext, Route } from "./action"
 import actionResolver from "./action-resolver"
 
 type ModuleFactory = () => Promise<any>
