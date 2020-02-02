@@ -120,11 +120,11 @@ export class Router {
 
                     return Rx.of(rootEntry).pipe(
                         Ro.expand(expandRoute),
-                        Ro.filter(entry => entry.remainingRoute.length === 0 /* is last entry */),
+                        Ro.filter(entry => { return entry.remainingRoute.length === 0; } /* is last entry */),
                         Ro.map(entry => activate(entry))
                     );
                 }),
-                Ro.reduce((old, active) => {
+                Ro.scan((old, active) => {
                     old && old.deactivate();
                     return active;
                 })
