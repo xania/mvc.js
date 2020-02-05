@@ -14,9 +14,9 @@ export type ActionResolverInput<TAction> =
   | ActionResolver<TAction>;
 
 export class ActionMap<TAction> {
-  private map: { route: Route; action: TAction }[] = [];
+  private map: { route: Route; action: MaybePromise<TAction> }[] = [];
 
-  public set(path: string, action: TAction): this {
+  public set(path: string, action: MaybePromise<TAction>): this {
     this.map.push({ route: path.split("/").filter(x => !!x), action });
     return this;
   }
@@ -120,7 +120,7 @@ export function actionResolver<TAction>(
 }
 
 export function action<TActionResult>(
-  execute: (context: IActionContext) => TActionResult,
+  execute: (context: IActionContext) => MaybePromise<TActionResult>,
   mappings?: ActionResolverInput<TActionResult>
 ) {
   return {
