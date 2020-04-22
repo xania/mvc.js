@@ -1,5 +1,5 @@
-import { Router, RouteEntry, ActionResult, Activation, pathCompare } from "./router.js"
-import { ActionResolver, ActionNotFound, Route } from "./action.js"
+import { Router, ActionResult, Activation, pathCompare } from "./router.js";
+import { Route } from "./action.js";
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators/index.js";
 
@@ -9,9 +9,9 @@ function browserRoutes(basepath: Route): Rx.Observable<Route> {
     return Rx.timer(0, 50).pipe(
         Ro.map(() => location.pathname),
         Ro.distinctUntilChanged(),
-        Ro.map((pathname: string) => pathname.split("/").filter(x => !!x)),
-        Ro.filter(route => startsWith(route, basepath)),
-        Ro.map(route => route.slice(basepath.length)),
+        Ro.map((pathname: string) => pathname.split("/").filter((x) => !!x)),
+        Ro.filter((route) => startsWith(route, basepath)),
+        Ro.map((route) => route.slice(basepath.length)),
         Ro.tap(console.log)
     );
 }
@@ -26,7 +26,9 @@ export class BrowserRouter extends Router {
         let subject = new Rx.Subject();
 
         if (typeof selectors === "string") {
-            document.querySelector(selectors).addEventListener("click", routerClick);
+            document
+                .querySelector(selectors)
+                .addEventListener("click", routerClick);
         } else {
             selectors.addEventListener("click", routerClick);
         }
@@ -39,11 +41,18 @@ export class BrowserRouter extends Router {
 
                 if (anchor && anchor.classList.contains("router-link")) {
                     event.preventDefault();
-                    const href = anchor.getAttribute("href")
+                    const href = anchor.getAttribute("href");
 
-                    if (href && anchor['pathname'] && location.host === anchor["host"]) {
-                        const pathname = anchor['pathname'];
-                        pushPath(router.basepath.map(e => "/" + e).join() + pathname);
+                    if (
+                        href &&
+                        anchor["pathname"] &&
+                        location.host === anchor["host"]
+                    ) {
+                        const pathname = anchor["pathname"];
+                        pushPath(
+                            router.basepath.map((e) => "/" + e).join() +
+                                pathname
+                        );
                         router.push(pathname);
                         subject.next(pathname);
 
@@ -64,11 +73,10 @@ export class BrowserRouter extends Router {
 function pushPath(pathname: string) {
     let { pathname: old } = window.location;
 
-    if ((old + "/") === pathname) {
+    if (old + "/" === pathname) {
         console.log("replaceState", pathname);
         window.history.replaceState(null, null, pathname);
-    }
-    else if (old !== pathname) {
+    } else if (old !== pathname) {
         window.history.pushState(null, null, pathname);
     } else {
         // console.error("same as ", pathname);
@@ -76,15 +84,12 @@ function pushPath(pathname: string) {
 }
 
 function startsWith(route: Route, base: Route) {
-    if (base.length === 0)
-        return true;
+    if (base.length === 0) return true;
 
-    if (base.length > route.length)
-        return false;
+    if (base.length > route.length) return false;
 
     for (var i = 0; i < base.length; i++) {
-        if (pathCompare(base[i], route[i]) === false)
-            return false;
+        if (pathCompare(base[i], route[i]) === false) return false;
     }
 
     return true;
