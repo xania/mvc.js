@@ -12,7 +12,7 @@ import UrlHelper from "./url-helper";
 import { ChainCache } from "./chain-cache";
 
 export type ActionResult = {
-    dispose();
+    dispose?(): void;
     activate?(): Rx.Unsubscribable | Rx.Unsubscribable[];
 };
 
@@ -45,7 +45,12 @@ export class Router {
         }
 
         const routeCache = new ChainCache<RouteResult<TActionResult>>((d) => {
-            return d && d.actionResult && d.actionResult.dispose();
+            return (
+                d &&
+                d.actionResult &&
+                d.actionResult.dispose &&
+                d.actionResult.dispose()
+            );
         });
 
         function expandRoute(
@@ -59,6 +64,7 @@ export class Router {
             } = routeEntry;
 
             if (remainingRoute.length === 0) {
+                routeCache.truncateAt(routeIndex);
                 return Rx.empty();
             }
 
@@ -126,7 +132,7 @@ export class Router {
                 })
             );
 
-            function catchError(error) {
+            function catchError(error: any) {
                 viewEngine.catch(error, remainingRoute, routeEntry);
 
                 return Rx.of(<RouteEntry<TAction, TActionResult>>{
@@ -213,7 +219,7 @@ function routeCompare(xv: any[], yv: any[]) {
     return true;
 }
 
-export function pathCompare(prev, next) {
+export function pathCompare(prev: any, next: any) {
     if (prev !== next) {
         if (typeof prev === "string") return false;
 
@@ -280,7 +286,7 @@ export type RouteResult<TActionResult> = {
 export type Renderer<T> = (
     value: T | Rx.ObservableInput<T> | ActionNotFound
 ) => Disposable;
-export type Disposable = { dispose() };
+export type Disposable = { dispose(): unknown };
 
 type SubscribableOrPromise<T> = Rx.Subscribable<T> | PromiseLike<T>;
 
@@ -298,7 +304,11 @@ export interface IViewEngine<TAction, TComponent> {
         | ActionResolution<TAction>
         | Rx.ObservableInput<ActionResolution<TAction>>
         | null;
-    catch(error: Error, route: Route, context: RouteEntry<TAction, TComponent>);
+    catch(
+        error: Error,
+        route: Route,
+        context: RouteEntry<TAction, TComponent>
+    ): unknown;
     resolveRoute(
         action: TAction,
         route: Route,
