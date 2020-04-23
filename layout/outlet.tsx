@@ -20,6 +20,7 @@ import tpl, {
 import { BrowserRouter } from "../lib/browser-router";
 import { IDriver } from "glow.js";
 import { flatTree, renderMany } from "glow.js/lib/tpl";
+import "./outlet.scss";
 
 interface OutletProps {
     routes: ActionResolverInput<IAction<any>>;
@@ -32,8 +33,12 @@ export function RouterOutlet(props: OutletProps, children: any[]) {
     const resolveAction = actionResolver(routes);
     return {
         render(driver: IDriver) {
+            const classBinding = driver.createAttribute("class", [
+                "router-outlet-container",
+            ]);
+
             const viewEngine = new ViewEngine(executeAction, resolveAction, {});
-            return router.start(viewEngine).subscribe();
+            return [classBinding, router.start(viewEngine).subscribe()];
 
             function executeAction(action: any, context: IActionContext) {
                 const actionResult =
