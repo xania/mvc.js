@@ -84,6 +84,35 @@ export type IActionContext = {
     url: UrlHelper;
 };
 
+export function lazy<TActionResult>(fn: () => IAction<TActionResult>) {
+    let action: IAction<TActionResult> | null = null;
+    function getAction() {
+        if (action === null) {
+            action = fn();
+        }
+        return action;
+    }
+    let resolver: ActionResolver<IAction<TActionResult>> | null = null;
+    function getResolver() {
+        const action = getAction();
+        if (resolver === null) {
+            resolver = actionResolver(action.resolve);
+        }
+        return resolver;
+    }
+
+    const retval: IAction<TActionResult> = {
+        execute(context: IActionContext) {
+            return getAction().execute(context);
+        },
+        resolve(route: Route, context: IActionContext) {
+            return getResolver()(route, context);
+        },
+    };
+
+    return retval;
+}
+
 export class ActionNotFound {
     constructor(public fullRoute: Route, public notFound: Route) {}
 
@@ -110,7 +139,8 @@ export function actionResolver<TAction>(
         let actionMap = new ActionMap<TAction>();
         try {
             for (let route in mappings) {
-                actionMap.set(route, mappings[route]);
+                const mapping = mappings[route];
+                actionMap.set(route, mapping);
             }
             return actionMap.resolve;
         } catch (ex) {
