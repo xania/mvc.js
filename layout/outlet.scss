@@ -45,7 +45,7 @@ nav {
             flex-direction: column;
             padding: 10px 5px;
             height: 100%;
-            transition: flex 0.1s ease-in-out;
+            transition: flex 0.5s ease-in-out;
             transition: opacity 2s ease-in-out;
 
             & > * {
@@ -84,7 +84,7 @@ nav {
                     }
                 }
 
-                box-shadow: 0px 0px 8px #888888;
+                box-shadow: 0px 0px 4px #888888;
                 margin-right: 10px;
             }
 
@@ -99,19 +99,22 @@ nav {
             &:last-child {
                 padding-left: 10px;
             }
+
             &:first-child {
                 flex: 1;
                 display: flex;
                 padding-right: 10px;
                 min-width: 500px;
-
-                &:last-child {
-                    transition: none;
-                }
             }
 
             &--loading:first-child {
                 flex: 0.1;
+                min-width: 1px;
+
+                &:last-child {
+                    flex: 1;
+                    transition: none;
+                }
             }
         }
     }
