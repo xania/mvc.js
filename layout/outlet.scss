@@ -21,8 +21,8 @@ nav {
         box-sizing: border-box;
 
         .router-page__content {
-            padding: 10px;
-            display: block;
+            display: flex;
+            flex-direction: column;
             width: 100%;
             clear: both;
         }
@@ -40,44 +40,78 @@ nav {
         width: 100%;
         overflow: auto;
 
-        & > * {
+        & > .router-page {
             display: flex;
             flex-direction: column;
-            padding: 10px;
+            padding: 10px 5px;
+            height: 100%;
+            transition: flex 0.1s ease-in-out;
+            transition: opacity 2s ease-in-out;
 
-            & > main {
+            & > * {
                 flex: 1;
                 height: 100%;
                 overflow: auto;
-                &::-webkit-scrollbar-track {
-                    border-radius: 3px;
-                    background-color: inherit;
-                }
-                &::-webkit-scrollbar {
-                    width: 6px;
-                    background-color: #f5f5f5;
+
+                > header {
+                    line-height: 30px;
+                    display: inline-flex;
+                    padding: 0 10px;
+                    font-weight: bold;
+                    color: gray;
                 }
 
-                &::-webkit-scrollbar-thumb {
-                    border-radius: 3px;
-                    -webkit-box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
-                    box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
-                    background-color: #cce;
+                > main {
+                    flex: 1;
+                    height: 100%;
+                    overflow: auto;
+                    padding: 10px;
+
+                    &::-webkit-scrollbar-track {
+                        border-radius: 3px;
+                        background-color: inherit;
+                    }
+                    &::-webkit-scrollbar {
+                        width: 6px;
+                        background-color: #f5f5f5;
+                    }
+
+                    &::-webkit-scrollbar-thumb {
+                        border-radius: 3px;
+                        -webkit-box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
+                        box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.3);
+                        background-color: #cce;
+                    }
                 }
+
                 box-shadow: 0px 0px 8px #888888;
                 margin-right: 10px;
             }
 
             &:not(:first-child) {
-                display: block;
-                height: 100%;
+                display: flex;
+                min-width: 300px;
+                flex: 0.1;
+                transition: flex 0.2s ease-in-out;
+                opacity: 0.8;
             }
 
-            &:first-child {
-                min-width: 500px;
-            }
             &:last-child {
-                min-width: 300px;
+                padding-left: 10px;
+            }
+            &:first-child {
+                flex: 1;
+                display: flex;
+                padding-right: 10px;
+                min-width: 500px;
+
+                &:last-child {
+                    transition: none;
+                }
+            }
+
+            &--loading:first-child {
+                flex: 0.1;
             }
         }
     }
