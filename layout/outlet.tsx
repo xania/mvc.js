@@ -1,31 +1,32 @@
 import { Router } from "../lib/router";
 import {
-    ActionResolver,
     IAction,
     IActionContext,
-    ActionNotFound,
     actionResolver,
     ActionResolverInput,
+    ActionResolver,
 } from "../lib/action";
 import { ViewEngine, PageResult } from "../lib/view-engine";
-import tpl, {
-    asTemplate,
-    ITemplate,
-    disposeMany,
-    Binding,
-    render,
-    DomDriver,
-    init,
-} from "glow.js";
-import { BrowserRouter } from "../lib/browser-router";
+import { disposeMany, Binding, render } from "glow.js";
 import { IDriver } from "glow.js";
 import { flatTree, renderMany } from "glow.js/lib/tpl";
-import "./outlet.scss";
 
 interface OutletProps {
     routes: ActionResolverInput<IAction<any>>;
     router: Router;
     stacked?: boolean;
+}
+
+function delayResolution(
+    resolver: ActionResolver<IAction<any>>
+): ActionResolver<IAction<any>> {
+    return (route, context) => {
+        return new Promise((resolve) => {
+            setTimeout(function () {
+                resolve(resolver(route, context));
+            }, 3000);
+        });
+    };
 }
 
 export function RouterOutlet(props: OutletProps, children: any[]) {
@@ -37,7 +38,11 @@ export function RouterOutlet(props: OutletProps, children: any[]) {
                 "router-outlet-container",
             ]);
 
-            const viewEngine = new ViewEngine(executeAction, resolveAction, {});
+            const viewEngine = new ViewEngine(
+                executeAction,
+                delayResolution(resolveAction),
+                {}
+            );
             return [classBinding, router.start(viewEngine).subscribe()];
 
             function executeAction(action: any, context: IActionContext) {

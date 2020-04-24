@@ -25,7 +25,7 @@ export class BrowserRouter extends Router {
         super(browserRoutes(basepath), basepath);
     }
 
-    attach = (dom: HTMLElement) => {
+    attachTo = (dom: HTMLElement) => {
         return this.addClickListener(dom);
     };
 
