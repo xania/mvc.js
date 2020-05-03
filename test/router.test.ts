@@ -1,20 +1,49 @@
-import { createRouter, createMapping, createAction } from "../router";
+import { createRouter, Route } from "../router";
+import * as Ro from "rxjs/operators";
+
+interface Action {
+    view: any;
+    routes: Route<Action>[];
+}
+
+export function createAction(view: any, routes?: Route<Action>[]): Action {
+    return {
+        view,
+        routes,
+    };
+}
+
+function executeAction(action: Action) {
+    if (!action) {
+        return null;
+    }
+
+    return {
+        dispose() {
+            console.log("dispose: " + action.view);
+        },
+    };
+}
 
 describe("route match", () => {
     test("traverse", (done) => {
-        const init = {
-            appliedRoute: ["a"],
-            params: {},
-            action: createAction(1),
-        };
+        const routes = [
+            {
+                path: ["a"],
+                view: createAction(2),
+            },
+        ];
 
-        const mappings = [createMapping(["a"], createAction(2))];
+        const router = createRouter(routes);
+        router
+            .start(executeAction)
+            .pipe(Ro.skip(1))
+            .subscribe((results) => {
+                expect(results.length).toBe(2);
+                done();
+            });
 
-        const router = createRouter(mappings);
-        router.start({ head: init }).subscribe((x) => {
-            expect(x.head.action).toBe(init.action);
-            done();
-        });
+        router.next(["a"]);
         router.next(["a", "b", "c"]);
     });
 
