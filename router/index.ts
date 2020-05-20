@@ -69,7 +69,7 @@ function isViewResolver(value: any): value is ViewResolver<any> {
 
 type PathTemplate = Path;
 
-export function pathMatcher(pathTemplate: PathTemplate) {
+function pathMatcher(pathTemplate: PathTemplate) {
     return (path: Path) => {
         const { length } = pathTemplate;
         for (var i = 0; i < length; i++) {
@@ -85,7 +85,7 @@ export function pathMatcher(pathTemplate: PathTemplate) {
     };
 }
 
-export function createRoute<TView>(
+function createRoute<TView>(
     path: PathTemplate,
     view: TView,
     routes?: RouteInput<TView>[]

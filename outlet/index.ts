@@ -1,6 +1,7 @@
 import { IDriver, disposeMany } from "glow.js";
 import { flatTree, renderMany } from "glow.js/lib/tpl";
-import { Router, ViewContext } from "./index";
+import { Router, ViewContext } from "../router";
+import "./outlet.scss";
 
 interface RouterOutletProps {
     router: Router<unknown>;
