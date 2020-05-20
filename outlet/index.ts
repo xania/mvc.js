@@ -1,20 +1,24 @@
 import { IDriver, disposeMany } from "glow.js";
 import { flatTree, renderMany } from "glow.js/lib/tpl";
-import { Router, ViewContext } from "../router";
+import { RouteInput, ViewContext, createRouter } from "../router";
 import "./outlet.scss";
 
-interface RouterOutletProps {
-    router: Router<unknown>;
+interface RouterOutletProps<TView> {
+    routes: RouteInput<TView>[];
 }
 
-export function RouterOutlet(props: RouterOutletProps, children: any[]) {
+export function RouterOutlet<TView>(
+    props: RouterOutletProps<TView>,
+    children: any[]
+) {
     return {
         render(driver: IDriver) {
             const classBinding = driver.createAttribute("class", [
                 "router-outlet-container",
             ]);
 
-            const subsc = props.router.start(executeView).subscribe();
+            const router = createRouter(props.routes);
+            const subsc = router.start(executeView).subscribe();
             return {
                 dispose() {
                     subsc.unsubscribe();
