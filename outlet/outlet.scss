@@ -13,11 +13,9 @@ nav {
 }
 
 .router-outlet-container {
-    display: flex;
-    flex-direction: row-reverse;
     box-sizing: border-box;
 
-    & > * {
+    & > .router-page {
         box-sizing: border-box;
 
         .router-page__content {
@@ -26,33 +24,49 @@ nav {
             width: 100%;
             clear: both;
         }
-        &:first-child {
-            flex: 1;
-        }
         &:not(:first-child) {
             display: none;
         }
     }
 }
 
+$min-width: 400px;
+$duration: 0.2s;
+
 @media only screen and (min-width: 600px) {
     .router-outlet-container {
+        display: flex;
+        flex-direction: row-reverse;
         width: 100%;
         overflow: auto;
+
+        &::before {
+            content: "";
+            flex: auto;
+            background-color: #eee;
+        }
 
         & > .router-page {
             display: flex;
             flex-direction: column;
             padding: 10px 5px;
             height: 100%;
-            transition: flex 0.5s ease-in-out;
-            transition: opacity 2s ease-in-out;
+            // transition: flex 2s ease-in-out;
+            transition: min-width $duration ease-in-out;
+            transition: opacity $duration ease-in-out;
 
             &:not(:first-child) {
                 display: flex;
-                min-width: 300px;
-                flex: 0.1;
-                transition: flex 0.2s ease-in-out;
+                transition: flex $duration ease-in-out;
+
+                animation-name: flex-page-reverse;
+                animation-duration: $duration;
+
+                // animation-name: flex-page;
+                // animation-duration: $duration;
+                // animation-direction: reverse;
+
+                min-width: $min-width;
             }
 
             &:last-child {
@@ -60,21 +74,56 @@ nav {
             }
 
             &:first-child {
-                flex: 1;
                 display: flex;
                 padding-right: 10px;
-                min-width: 500px;
-            }
+                flex: auto;
+                min-width: 50%;
 
-            &--loading:first-child {
-                flex: 0.1;
-                min-width: 1px;
+                // &:not(.router-page--loading) {
+                //     color: red;
+                //     animation-name: flex-page-reverse;
+                //     animation-duration: $duration;
+                // }
 
                 &:last-child {
-                    flex: 1;
-                    transition: none;
+                    animation-duration: 0s;
                 }
             }
+
+            &--loading {
+                animation-name: flex-page;
+                animation-duration: $duration;
+
+                // flex: 0.1;
+                // &:last-child {
+                //     flex: 1;
+                //     transition: none;
+                // }
+            }
         }
+    }
+}
+
+@keyframes flex-page {
+    from {
+        flex: 0;
+        min-width: 0%;
+        width: auto;
+    }
+    to {
+        flex: 1;
+        min-width: 50%;
+        width: 50%;
+    }
+}
+
+@keyframes flex-page-reverse {
+    from {
+        min-width: 50%;
+        color: blue;
+    }
+    to {
+        min-width: $min-width;
+        color: green;
     }
 }
