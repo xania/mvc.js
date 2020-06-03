@@ -31,7 +31,7 @@ nav {
 }
 
 $min-width: 400px;
-$duration: 0.2s;
+$duration: 0.15s;
 
 @media only screen and (min-width: 600px) {
     .router-outlet-container {
@@ -39,12 +39,6 @@ $duration: 0.2s;
         flex-direction: row-reverse;
         width: 100%;
         overflow: auto;
-
-        &::before {
-            content: "";
-            flex: auto;
-            background-color: #eee;
-        }
 
         & > .router-page {
             display: flex;
@@ -65,8 +59,6 @@ $duration: 0.2s;
                 // animation-name: flex-page;
                 // animation-duration: $duration;
                 // animation-direction: reverse;
-
-                min-width: $min-width;
             }
 
             &:last-child {
@@ -76,8 +68,7 @@ $duration: 0.2s;
             &:first-child {
                 display: flex;
                 padding-right: 10px;
-                flex: auto;
-                min-width: 50%;
+                flex: 1;
 
                 // &:not(.router-page--loading) {
                 //     color: red;
@@ -112,18 +103,15 @@ $duration: 0.2s;
     }
     to {
         flex: 1;
-        min-width: 50%;
-        width: 50%;
     }
 }
 
 @keyframes flex-page-reverse {
     from {
-        min-width: 50%;
         color: blue;
     }
     to {
-        min-width: $min-width;
+        min-width: 0;
         color: green;
     }
 }
