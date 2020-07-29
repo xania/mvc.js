@@ -25,7 +25,7 @@ export interface RouteDescriptor<TView> {
     routes?: RouteInput<TView>[];
 }
 
-interface Component<TView> {
+export interface Component<TView = unknown> {
     view: TView;
     routes?: RouteInput<TView>[];
 }
