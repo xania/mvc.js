@@ -36,7 +36,7 @@ $duration: 0.25s;
 @media only screen and (min-width: 600px) {
     .router-outlet-container {
         display: flex;
-        flex-direction: row-reverse;
+        // flex-direction: row-reverse;
         width: 100%;
         overflow: auto;
 
