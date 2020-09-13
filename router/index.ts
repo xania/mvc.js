@@ -15,13 +15,13 @@ interface RouteSegment {
 
 export interface Route<TView> {
     match(path: Path): RouteSegment;
-    view: TView;
+    view?: TView;
     resolve?: ViewResolver<TView>;
 }
 
 export interface RouteDescriptor<TView> {
     path: Path;
-    view: TView;
+    view?: TView;
     routes?: RouteInput<TView>[];
 }
 
@@ -36,10 +36,13 @@ interface ComponentRoute<TView> {
 }
 
 function isRouteDescriptor(value: any): value is RouteDescriptor<any> {
-    return value && "path" in value && "view" in value;
+    return value && "path" in value;
+}
+function isRoute(value: any): value is Route<any> {
+    return value && typeof value.match === "function";
 }
 function isComponentRoute(value: any): value is ComponentRoute<any> {
-    return value && "path" in value && "component" in value;
+    return "component" in value;
 }
 export type RouteInput<TView> =
     | RouteDescriptor<TView>
@@ -340,15 +343,19 @@ export function createViewResolver<TView>(
         if (Array.isArray(routes)) {
             for (const route of routes) {
                 if (isRouteDescriptor(route)) {
-                    results.push(
-                        createRoute(route.path, route.view, route.routes)
-                    );
-                } else if (isComponentRoute(route)) {
-                    results.push(
-                        fromComponentRoute(route.path, route.component)
-                    );
-                } else {
+                    if (isComponentRoute(route)) {
+                        results.push(
+                            fromComponentRoute(route.path, route.component)
+                        );
+                    } else {
+                        results.push(
+                            createRoute(route.path, route.view, route.routes)
+                        );
+                    }
+                } else if (isRoute(route)) {
                     results.push(route);
+                } else {
+                    console.error("unsupported route", route);
                 }
             }
         }

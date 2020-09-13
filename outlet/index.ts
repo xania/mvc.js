@@ -27,17 +27,21 @@ export function RouterOutlet<TView>(
             };
 
             function executeView(view: unknown, context: ViewContext) {
-                const templates = flatTree(children.slice(0), (item) =>
-                    applyChild(item, view, context)
-                );
-                const scope = driver.createScope(0);
-                const bindings = renderMany(scope, templates);
-                return {
-                    dispose() {
-                        disposeMany(bindings);
-                        scope.dispose();
-                    },
-                };
+                if (view) {
+                    const templates = flatTree(children.slice(0), (item) =>
+                        applyChild(item, view, context)
+                    );
+                    const scope = driver.createScope(0);
+                    const bindings = renderMany(scope, templates);
+                    return {
+                        dispose() {
+                            disposeMany(bindings);
+                            scope.dispose();
+                        },
+                    };
+                } else {
+                    return null;
+                }
             }
         },
     };
