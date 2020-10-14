@@ -31,7 +31,7 @@ export function RouterOutlet<TView>(
                     const templates = flatTree(children.slice(0), (item) =>
                         applyChild(item, view, context)
                     );
-                    const scope = driver.createScope(0);
+                    const scope = driver.createScope();
                     const bindings = renderMany(scope, templates);
                     return {
                         dispose() {
