@@ -49,13 +49,13 @@ export type RouteInput<TView> =
     | Route<TView>
     | ComponentRoute<TView>;
 
-interface ViewResult {
+export interface ViewResult {
     dispose(): void;
 }
 
 export interface ViewResolution<TView> {
     appliedPath: string[];
-    params: RouteParams;
+    params?: RouteParams;
     view: TView | null;
     resolve?: ViewResolver<TView>;
 }
@@ -136,15 +136,21 @@ interface ViewResolutionFilter<TView>
 export interface ViewContext {
     url: UrlHelper;
     params: RouteParams;
+    childRouter<TView>(map: ViewResolver<TView> | RouteInput<TView>[]);
 }
-type ViewExecutor<TView> = (action: TView, context: ViewContext) => ViewResult;
+type ViewExecutor<TView> = (
+    action: TView,
+    url: UrlHelper,
+    params: RouteParams
+) => ViewResult;
 
-function browserRoutes(basepath: Path): Rx.Observable<Path> {
+export function browserRoutes(virtualPath: Path): Rx.Observable<Path> {
     return Rx.timer(0, 50).pipe(
         Ro.map(() => location.pathname),
         Ro.distinctUntilChanged(),
         Ro.map((pathname: string) => pathname.split("/").filter((x) => !!x)),
-        Ro.filter((route) => startsWith(route, basepath))
+        Ro.filter((route) => startsWith(route, virtualPath)),
+        Ro.map((route) => route.slice(virtualPath.length))
     );
 }
 
@@ -172,22 +178,22 @@ function startsWith(route: Path, base: Path) {
 
 export interface Router<TView> {
     start(executor: ViewExecutor<TView>): Rx.Observable<ViewResult[]>;
-    next(path: Path): void;
 }
 
 export function createRouter<TView>(
-    routes: ViewResolver<TView> | RouteInput<TView>[]
+    routes$: Rx.Observable<string[]>,
+    mapping: ViewResolver<TView> | RouteInput<TView>[]
 ) {
-    var routes$ = new Rx.Subject<Path>();
-    var browser$ = browserRoutes([]);
-    const rootResolve = isViewResolver(routes)
-        ? routes
-        : createViewResolver(routes);
+    type Entry = {
+        url: UrlHelper;
+        result: ViewResult;
+    };
+
+    const viewResolver = isViewResolver(mapping)
+        ? mapping
+        : createViewResolver(mapping);
 
     return {
-        next(route: Path) {
-            routes$.next(route);
-        },
         start(executor: ViewExecutor<TView>) {
             return start(executor, identity);
         },
@@ -200,11 +206,7 @@ export function createRouter<TView>(
         executor: ViewExecutor<TView>,
         filter?: ViewResolutionFilter<TView>
     ) {
-        return startRouter(
-            Rx.merge(routes$, browser$),
-            rootResolve,
-            filter || identity
-        ).pipe(
+        return startRouter(routes$, viewResolver, filter || identity).pipe(
             Ro.scan(reducer(executor), []),
             Ro.map((entries) => entries.map((entry) => entry.result))
         );
@@ -212,10 +214,6 @@ export function createRouter<TView>(
 
     type Pair = [number, LinkedList<ViewResolution<TView>>];
     function reducer(executor: ViewExecutor<TView>) {
-        type Entry = {
-            url: UrlHelper;
-            result: ViewResult;
-        };
         return function (acc: Entry[], [offset, list]: Pair) {
             while (acc.length > offset) {
                 const curr = acc.pop();
@@ -231,7 +229,7 @@ export function createRouter<TView>(
                 );
                 acc[i + offset] = {
                     url,
-                    result: executor(res.view, { params: res.params, url }),
+                    result: executor(res.view, url, res.params),
                 };
             });
             return acc;
@@ -335,7 +333,11 @@ export function createViewResolver<TView>(
                 }
             }
         }
-        return Promise.resolve(null as ViewResolution<TView>);
+        const notFound: ViewResolution<TView> = {
+            appliedPath: remainingPath,
+            view: null,
+        };
+        return Promise.resolve(notFound);
     };
 
     function compile(routes: RouteInput<TView>[]): Route<TView>[] {
@@ -454,9 +456,10 @@ function fromComponentRoute<TView>(
     component: () => Component<TView>
 ): Route<TView> {
     const mem = memoize(() => {
-        const comp = component();
+        const comp = typeof component === "function" ? component() : component;
+        const view = "view" in comp ? comp.view : comp;
         return {
-            view: comp.view,
+            view,
             resolve: createViewResolver(comp.routes),
         };
     });

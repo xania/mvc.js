@@ -1,10 +1,19 @@
 import { IDriver, disposeMany } from "glow.js";
 import { flatTree, renderMany } from "glow.js/lib/tpl";
-import { RouteInput, ViewContext, createRouter } from "../router";
+import {
+    RouteInput,
+    ViewContext,
+    createRouter,
+    Router,
+    ViewResult,
+} from "../router";
 import "./outlet.scss";
+import * as Rx from "rxjs";
+import { UrlHelper } from "../router/url-helper";
+import { strings } from "@material/textfield/character-counter/constants";
 
 interface RouterOutletProps<TView> {
-    routes: RouteInput<TView>[];
+    router: Router<TView>;
 }
 
 export function RouterOutlet<TView>(
@@ -17,7 +26,8 @@ export function RouterOutlet<TView>(
                 "router-outlet-container",
             ]);
 
-            const router = createRouter(props.routes);
+            const notFound$ = new Rx.Subject<string[]>();
+            const { router } = props;
             const subsc = router.start(executeView).subscribe();
             return {
                 dispose() {
@@ -26,10 +36,21 @@ export function RouterOutlet<TView>(
                 },
             };
 
-            function executeView(view: unknown, context: ViewContext) {
+            function executeView(
+                view: unknown,
+                url: UrlHelper,
+                params
+            ): ViewResult {
                 if (view) {
-                    const templates = flatTree(children.slice(0), (item) =>
-                        applyChild(item, view, context)
+                    const context = {
+                        url,
+                        params,
+                        childRouter(map) {
+                            return createRouter(notFound$, map);
+                        },
+                    };
+                    const templates = flatTree([...children, view], (item) =>
+                        applyChild(item, context)
                     );
                     const scope = driver.createScope();
                     const bindings = renderMany(scope, templates);
@@ -40,6 +61,7 @@ export function RouterOutlet<TView>(
                         },
                     };
                 } else {
+                    notFound$.next(url.path);
                     return null;
                 }
             }
@@ -47,9 +69,9 @@ export function RouterOutlet<TView>(
     };
 }
 
-function applyChild(child, template, context: ViewContext) {
+function applyChild(child, context: ViewContext) {
     if (typeof child === "function") {
-        return child(template, context);
+        return child(context);
     } else {
         return child;
     }

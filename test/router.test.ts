@@ -19,6 +19,7 @@ function executeAction(action: Action) {
     }
 
     return {
+        path: [],
         dispose() {
             console.log("dispose: " + action.view);
         },
@@ -34,7 +35,7 @@ describe("route match", () => {
             },
         ];
 
-        const router = createRouter(routes);
+        const router = createRouter(null, routes);
         router
             .start(executeAction)
             .pipe(Ro.skip(1))
@@ -42,9 +43,6 @@ describe("route match", () => {
                 expect(results.length).toBe(2);
                 done();
             });
-
-        router.next(["a"]);
-        router.next(["a", "b", "c"]);
     });
 
     // test("no mappings", () => {
