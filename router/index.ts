@@ -53,11 +53,16 @@ export interface ViewResult {
     dispose(): void;
 }
 
-export interface ViewResolution<TView> {
+export type ViewResolution<TView> = Resolved<TView> | NotFound;
+interface Resolved<TView> {
     appliedPath: string[];
     params?: RouteParams;
     view: TView | null;
     resolve?: ViewResolver<TView>;
+}
+
+interface NotFound {
+    appliedPath: string[];
 }
 
 type ViewResolver<TView> = (route: string[]) => Promise<ViewResolution<TView>>;
@@ -75,6 +80,9 @@ type PathTemplate = Path;
 function pathMatcher(pathTemplate: PathTemplate) {
     return (path: Path) => {
         const { length } = pathTemplate;
+        if (length === 0 && path.length > 0) {
+            return null;
+        }
         for (var i = 0; i < length; i++) {
             if (pathTemplate[i] !== path[i]) {
                 return null;
@@ -105,12 +113,19 @@ function createRoute<TView>(
 async function traverse<TView>(
     remainingPath: Path,
     resolve: ViewResolver<TView>
-): Promise<LinkedList<ViewResolution<TView>>> {
-    if (isArrayEmpty(remainingPath)) {
+): Promise<LinkedList<Resolved<TView>>> {
+    if (!resolve) {
         return null;
     }
+
     const result = await resolve(remainingPath);
-    if (result) {
+    if ("view" in result) {
+        if (result.appliedPath.length === 0) {
+            return {
+                head: result,
+            };
+        }
+
         return {
             head: result,
             tail: await traverse(
@@ -119,29 +134,19 @@ async function traverse<TView>(
             ),
         };
     } else {
-        return {
-            head: {
-                appliedPath: remainingPath,
-                view: null,
-                params: {},
-            },
-        };
+        return null;
     }
 }
-
-type Mononoid<T> = (x: T) => T;
-interface ViewResolutionFilter<TView>
-    extends Mononoid<LinkedList<ViewResolution<TView>>> {}
 
 export interface ViewContext {
     url: UrlHelper;
     params: RouteParams;
     childRouter<TView>(map: ViewResolver<TView> | RouteInput<TView>[]);
 }
+
 type ViewExecutor<TView> = (
-    action: TView,
-    url: UrlHelper,
-    params: RouteParams
+    resolution: ViewResolution<TView>,
+    url: UrlHelper
 ) => ViewResult;
 
 export function browserRoutes(virtualPath: Path): Rx.Observable<Path> {
@@ -194,119 +199,140 @@ export function createRouter<TView>(
         : createViewResolver(mapping);
 
     return {
-        start(executor: ViewExecutor<TView>) {
-            return start(executor, identity);
-        },
-        latest(executor: ViewExecutor<TView>) {
-            return start(executor, last);
-        },
-    } as Router<TView>;
+        start,
+    };
 
-    function start(
-        executor: ViewExecutor<TView>,
-        filter?: ViewResolutionFilter<TView>
-    ) {
-        return startRouter(routes$, viewResolver, filter || identity).pipe(
+    function start(executor: ViewExecutor<TView>) {
+        let results: ViewResult[] = [];
+        return startRouter(routes$, viewResolver).pipe(
             Ro.scan(reducer(executor), []),
-            Ro.map((entries) => entries.map((entry) => entry.result))
+            Ro.map(
+                (entries) => (results = entries.map((entry) => entry.result))
+            ),
+            Ro.finalize(() => {
+                for (const result of results) {
+                    if (!!result) {
+                        result.dispose();
+                    }
+                }
+            })
         );
     }
 
-    type Pair = [number, LinkedList<ViewResolution<TView>>];
+    type RouteResolution = [number, LinkedList<Resolved<TView>>, Path];
     function reducer(executor: ViewExecutor<TView>) {
-        return function (acc: Entry[], [offset, list]: Pair) {
-            while (acc.length > offset) {
-                const curr = acc.pop();
+        return function (
+            acc: Entry[],
+            [offset, list, remainingPath]: RouteResolution
+        ) {
+            const entries = acc.slice(0, offset);
+            for (let i = offset; i < acc.length; i++) {
+                const curr = acc[i];
                 if (curr.result) {
                     curr.result.dispose();
                 }
             }
-            map(list, (res, i) => {
-                const parent = acc[i + offset - 1];
+            map(list, execute);
+            execute({ appliedPath: remainingPath }, entries.length - offset);
+
+            return entries;
+
+            function execute(res: ViewResolution<TView>, idx: number) {
+                const parent = entries[idx + offset - 1];
                 const url = new UrlHelper(
                     res.appliedPath,
                     parent && parent.url
                 );
-                acc[i + offset] = {
+                entries[idx + offset] = {
                     url,
-                    result: executor(res.view, url, res.params),
+                    result: executor(res, url),
                 };
-            });
-            return acc;
+            }
         };
-    }
-
-    function identity<T>(value: T): T {
-        return value;
     }
 }
 
 function startRouter<TView>(
     routes$: Rx.Observable<Path>,
-    rootResolve: ViewResolver<TView>,
-    filter: ViewResolutionFilter<TView>
+    rootResolve: ViewResolver<TView>
 ) {
-    let prev: LinkedList<ViewResolution<TView>> = null;
+    let prev: LinkedList<Resolved<TView>> = null;
     return routes$.pipe(
         Ro.concatMap(async (route) => {
-            let resolutions = filter(
-                await traverseReduce(route, rootResolve, prev)
+            const {
+                unchanged,
+                remainingRoute,
+                resolve,
+            } = validResolutions<TView>(route, prev);
+            const newResolutions = await traverse(
+                remainingRoute,
+                resolve || rootResolve
             );
-            let acc = prev;
-            prev = resolutions;
 
-            let index = 0;
-            while (
-                resolutions &&
-                acc &&
-                isSameResolution(acc.head, resolutions.head)
-            ) {
-                index++;
-                acc = acc.tail;
-                resolutions = resolutions.tail;
-            }
+            prev = concat(unchanged, newResolutions);
+            const appliedLength = reduce(
+                (p, n) => p + n.appliedPath.length,
+                prev,
+                0
+            );
 
-            return [index, resolutions] as [
+            const remainingPath = route.slice(appliedLength);
+            return [length(unchanged), newResolutions, remainingPath] as [
                 number,
-                LinkedList<ViewResolution<TView>>
+                LinkedList<ViewResolution<TView>>,
+                Path
             ];
         }),
         Ro.share()
     );
 }
 
-async function traverseReduce<TView>(
+function validResolutions<TView>(
     route: string[],
-    resolve: ViewResolver<TView>,
-    prevlist: LinkedList<ViewResolution<TView>>
-): Promise<LinkedList<ViewResolution<TView>>> {
-    if (prevlist) {
-        const { head } = prevlist;
-        if (isValidResolution(head, route)) {
-            const result = await traverseReduce<TView>(
-                route.slice(head.appliedPath.length),
-                head.resolve,
-                prevlist.tail
-            );
-            return cons(head, result);
-        }
+    prevlist: LinkedList<Resolved<TView>>
+): {
+    remainingRoute: Path;
+    unchanged?: LinkedList<Resolved<TView>>;
+    resolve?: ViewResolver<TView>;
+} {
+    if (!prevlist) {
+        return { remainingRoute: route };
     }
 
-    return await traverse(route, resolve);
+    const { head } = prevlist;
+    if (isValidResolution(head, route)) {
+        const { unchanged, remainingRoute, resolve } = validResolutions<TView>(
+            route.slice(head.appliedPath.length),
+            prevlist.tail
+        );
+        return {
+            unchanged: cons(head, unchanged),
+            remainingRoute,
+            resolve: resolve || head.resolve,
+        };
+    } else {
+        return {
+            remainingRoute: route,
+            resolve: head.resolve,
+        };
+    }
 }
 
 function isValidResolution<TView>(
     result: ViewResolution<TView>,
-    remaininPath: string[]
+    remainingPath: string[]
 ): boolean {
-    if (!remaininPath || remaininPath.length === 0) {
+    if (!remainingPath || remainingPath.length === 0) {
         return false;
     }
 
-    if (result && result.view) {
+    if (result && "view" in result) {
         const { appliedPath } = result;
+        if (appliedPath.length === 0 && remainingPath.length > 0) {
+            return false;
+        }
         for (let i = 0; i < appliedPath.length; i++) {
-            if (appliedPath[i] !== remaininPath[i]) return false;
+            if (appliedPath[i] !== remainingPath[i]) return false;
         }
         return true;
     }
@@ -316,26 +342,34 @@ function isValidResolution<TView>(
 export function createViewResolver<TView>(
     routes: RouteInput<TView>[]
 ): ViewResolver<TView> {
+    if (isArrayEmpty(routes)) {
+        return null;
+    }
+
     const compiled = compile(routes);
+    if (isArrayEmpty(compiled)) {
+        return (remainingPath) => {
+            return Promise.resolve<ViewResolution<TView>>({
+                appliedPath: remainingPath,
+            });
+        };
+    }
     return (remainingPath: string[]) => {
-        if (!isArrayEmpty(compiled) && !isArrayEmpty(remainingPath)) {
-            for (const route of compiled) {
-                const segment = route.match(remainingPath);
-                if (segment) {
-                    const { view } = route;
-                    const appliedPath = segment.path;
-                    return Promise.resolve<ViewResolution<TView>>({
-                        appliedPath,
-                        view,
-                        params: segment.params,
-                        resolve: route.resolve,
-                    });
-                }
+        for (const route of compiled) {
+            const segment = route.match(remainingPath);
+            if (segment) {
+                const { view } = route;
+                const appliedPath = segment.path;
+                return Promise.resolve<ViewResolution<TView>>({
+                    appliedPath,
+                    view,
+                    params: segment.params,
+                    resolve: route.resolve,
+                });
             }
         }
-        const notFound: ViewResolution<TView> = {
+        const notFound: NotFound = {
             appliedPath: remainingPath,
-            view: null,
         };
         return Promise.resolve(notFound);
     };
@@ -410,6 +444,32 @@ function concat<T>(x: LinkedList<T>, y: LinkedList<T>): LinkedList<T> {
     };
 }
 
+type ReduceCallBack<T, U> = (prev: U, next: T, idx: number) => U;
+function reduce<T, U>(
+    callback: ReduceCallBack<T, U>,
+    list: LinkedList<T>,
+    seed: U
+): U {
+    if (!list) {
+        return seed;
+    }
+    let result = seed;
+    let l = list;
+    let idx = 0;
+    while (l) {
+        result = callback(result, l.head, idx++);
+        l = l.tail;
+    }
+    return result;
+}
+
+function length<T>(x: LinkedList<T>): number {
+    if (!x) {
+        return 0;
+    }
+    return 1 + length(x.tail);
+}
+
 function append<T>(head: T, list: LinkedList<T>): LinkedList<T> {
     if (!list) {
         return { head };
@@ -474,10 +534,7 @@ function fromComponentRoute<TView>(
     };
 }
 
-function isSameResolution<TView>(
-    x: ViewResolution<TView>,
-    y: ViewResolution<TView>
-) {
+function isSameResolution<TView>(x: Resolved<TView>, y: Resolved<TView>) {
     if (x.view === null || y.view === null) {
         return false;
     }

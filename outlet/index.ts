@@ -6,11 +6,11 @@ import {
     createRouter,
     Router,
     ViewResult,
+    ViewResolution,
 } from "../router";
 import "./outlet.scss";
 import * as Rx from "rxjs";
 import { UrlHelper } from "../router/url-helper";
-import { strings } from "@material/textfield/character-counter/constants";
 
 interface RouterOutletProps<TView> {
     router: Router<TView>;
@@ -37,11 +37,11 @@ export function RouterOutlet<TView>(
             };
 
             function executeView(
-                view: unknown,
-                url: UrlHelper,
-                params
+                resolution: ViewResolution<unknown>,
+                url: UrlHelper
             ): ViewResult {
-                if (view) {
+                if ("view" in resolution) {
+                    const { view, params } = resolution;
                     const context = {
                         url,
                         params,
@@ -61,7 +61,7 @@ export function RouterOutlet<TView>(
                         },
                     };
                 } else {
-                    notFound$.next(url.path);
+                    notFound$.next(resolution.appliedPath);
                     return null;
                 }
             }

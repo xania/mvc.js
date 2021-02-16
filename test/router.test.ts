@@ -1,5 +1,6 @@
-import { createRouter, Route } from "../router";
+import { createRouter, Route, ViewResolution } from "../router";
 import * as Ro from "rxjs/operators";
+import { UrlHelper } from "../router/url-helper";
 
 interface Action {
     view: any;
@@ -13,15 +14,10 @@ export function createAction(view: any, routes?: Route<Action>[]): Action {
     };
 }
 
-function executeAction(action: Action) {
-    if (!action) {
-        return null;
-    }
-
+function executeAction(resolution: ViewResolution<Action>, url: UrlHelper) {
     return {
-        path: [],
         dispose() {
-            console.log("dispose: " + action.view);
+            console.log("dispose");
         },
     };
 }
