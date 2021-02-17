@@ -50,11 +50,16 @@ export type RouteInput<TView> =
     | ComponentRoute<TView>;
 
 export interface ViewResult {
+    url: UrlHelper;
+    result: Disposable;
+}
+
+interface Disposable {
     dispose(): void;
 }
 
 export type ViewResolution<TView> = Resolved<TView> | NotFound;
-interface Resolved<TView> {
+export interface Resolved<TView> {
     appliedPath: string[];
     params?: RouteParams;
     view: TView | null;
@@ -141,13 +146,15 @@ async function traverse<TView>(
 export interface ViewContext {
     url: UrlHelper;
     params: RouteParams;
-    childRouter<TView>(map: ViewResolver<TView> | RouteInput<TView>[]);
+    childRouter<TView>(
+        map: ViewResolver<TView> | RouteInput<TView>[]
+    ): Router<TView>;
 }
 
 type ViewExecutor<TView> = (
     resolution: ViewResolution<TView>,
     url: UrlHelper
-) => ViewResult;
+) => Disposable;
 
 export function browserRoutes(virtualPath: Path): Rx.Observable<Path> {
     return Rx.timer(0, 50).pipe(
@@ -182,62 +189,49 @@ function startsWith(route: Path, base: Path) {
 }
 
 export interface Router<TView> {
-    start(executor: ViewExecutor<TView>): Rx.Observable<ViewResult[]>;
+    start(executor: ViewExecutor<TView>): Rx.Observable<[ViewResult[], Path]>;
 }
 
 export function createRouter<TView>(
     routes$: Rx.Observable<string[]>,
     mapping: ViewResolver<TView> | RouteInput<TView>[]
 ) {
-    type Entry = {
-        url: UrlHelper;
-        result: ViewResult;
-    };
-
     const viewResolver = isViewResolver(mapping)
         ? mapping
         : createViewResolver(mapping);
 
     return {
-        start,
+        start(executor: ViewExecutor<TView>) {
+            return startRouter(routes$, viewResolver).pipe(
+                Ro.scan(createScanner(executor), [[], []])
+            );
+        },
     };
 
-    function start(executor: ViewExecutor<TView>) {
-        let results: ViewResult[] = [];
-        return startRouter(routes$, viewResolver).pipe(
-            Ro.scan(reducer(executor), []),
-            Ro.map(
-                (entries) => (results = entries.map((entry) => entry.result))
-            ),
-            Ro.finalize(() => {
-                for (const result of results) {
-                    if (!!result) {
-                        result.dispose();
-                    }
-                }
-            })
-        );
-    }
-
-    type RouteResolution = [number, LinkedList<Resolved<TView>>, Path];
-    function reducer(executor: ViewExecutor<TView>) {
-        return function (
-            acc: Entry[],
-            [offset, list, remainingPath]: RouteResolution
-        ) {
-            const entries = acc.slice(0, offset);
-            for (let i = offset; i < acc.length; i++) {
-                const curr = acc[i];
+    type RouteResolution = [
+        LinkedList<Resolved<TView>>,
+        LinkedList<Resolved<TView>>,
+        Path
+    ];
+    function createScanner(executor: ViewExecutor<TView>) {
+        return function scan(
+            [prev]: [ViewResult[], Path],
+            next: RouteResolution
+        ): [ViewResult[], Path] {
+            const [unchanged, added, remaining] = next;
+            const offset = length(unchanged);
+            const entries = prev.slice(0, offset);
+            for (let i = offset; i < prev.length; i++) {
+                const curr = prev[i];
                 if (curr.result) {
                     curr.result.dispose();
                 }
             }
-            map(list, execute);
-            execute({ appliedPath: remainingPath }, entries.length - offset);
+            map(added, execute);
 
-            return entries;
+            return [entries, remaining];
 
-            function execute(res: ViewResolution<TView>, idx: number) {
+            function execute(res: Resolved<TView>, idx: number) {
                 const parent = entries[idx + offset - 1];
                 const url = new UrlHelper(
                     res.appliedPath,
@@ -263,7 +257,7 @@ function startRouter<TView>(
                 unchanged,
                 remainingRoute,
                 resolve,
-            } = validResolutions<TView>(route, prev);
+            } = unchangedResolutions<TView>(route, prev);
             const newResolutions = await traverse(
                 remainingRoute,
                 resolve || rootResolve
@@ -277,17 +271,13 @@ function startRouter<TView>(
             );
 
             const remainingPath = route.slice(appliedLength);
-            return [length(unchanged), newResolutions, remainingPath] as [
-                number,
-                LinkedList<ViewResolution<TView>>,
-                Path
-            ];
+            return [unchanged, newResolutions, remainingPath];
         }),
         Ro.share()
     );
 }
 
-function validResolutions<TView>(
+function unchangedResolutions<TView>(
     route: string[],
     prevlist: LinkedList<Resolved<TView>>
 ): {
@@ -301,7 +291,11 @@ function validResolutions<TView>(
 
     const { head } = prevlist;
     if (isValidResolution(head, route)) {
-        const { unchanged, remainingRoute, resolve } = validResolutions<TView>(
+        const {
+            unchanged,
+            remainingRoute,
+            resolve,
+        } = unchangedResolutions<TView>(
             route.slice(head.appliedPath.length),
             prevlist.tail
         );

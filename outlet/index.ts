@@ -7,6 +7,7 @@ import {
     Router,
     ViewResult,
     ViewResolution,
+    Resolved,
 } from "../router";
 import "./outlet.scss";
 import * as Rx from "rxjs";
@@ -26,9 +27,13 @@ export function RouterOutlet<TView>(
                 "router-outlet-container",
             ]);
 
-            const notFound$ = new Rx.Subject<string[]>();
+            const childRoutes$ = new Rx.Subject<string[]>();
             const { router } = props;
-            const subsc = router.start(executeView).subscribe();
+            const subsc = router.start(executeView).subscribe({
+                next([_, remaining]) {
+                    childRoutes$.next(remaining);
+                },
+            });
             return {
                 dispose() {
                     subsc.unsubscribe();
@@ -37,33 +42,28 @@ export function RouterOutlet<TView>(
             };
 
             function executeView(
-                resolution: ViewResolution<unknown>,
+                resolution: Resolved<unknown>,
                 url: UrlHelper
-            ): ViewResult {
-                if ("view" in resolution) {
-                    const { view, params } = resolution;
-                    const context = {
-                        url,
-                        params,
-                        childRouter(map) {
-                            return createRouter(notFound$, map);
-                        },
-                    };
-                    const templates = flatTree([...children, view], (item) =>
-                        applyChild(item, context)
-                    );
-                    const scope = driver.createScope();
-                    const bindings = renderMany(scope, templates);
-                    return {
-                        dispose() {
-                            disposeMany(bindings);
-                            scope.dispose();
-                        },
-                    };
-                } else {
-                    notFound$.next(resolution.appliedPath);
-                    return null;
-                }
+            ) {
+                const { view, params } = resolution;
+                const context = {
+                    url,
+                    params,
+                    childRouter(map) {
+                        return createRouter(childRoutes$, map);
+                    },
+                };
+                const templates = flatTree([...children, view], (item) =>
+                    applyChild(item, context)
+                );
+                const scope = driver.createScope();
+                const bindings = renderMany(scope, templates);
+                return {
+                    dispose() {
+                        disposeMany(bindings);
+                        scope.dispose();
+                    },
+                };
             }
         },
     };
