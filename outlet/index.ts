@@ -15,6 +15,7 @@ import { UrlHelper } from "../router/url-helper";
 
 interface RouterOutletProps<TView> {
     router: Router<TView>;
+    onResolved?: (paths: string[][]) => void;
 }
 
 export function RouterOutlet<TView>(
@@ -28,10 +29,19 @@ export function RouterOutlet<TView>(
             ]);
 
             const childRoutes$ = new Rx.Subject<string[]>();
-            const { router } = props;
+            const { router, onResolved } = props;
             const subsc = router.start(executeView).subscribe({
-                next([_, remaining]) {
+                next([viewResults, remaining]) {
                     childRoutes$.next(remaining);
+
+                    if (typeof onResolved !== "function") {
+                        return;
+                    }
+                    if (Array.isArray(viewResults) && viewResults.length > 0) {
+                        onResolved(viewResults.map((e) => e.url.path));
+                    } else {
+                        onResolved([]);
+                    }
                 },
             });
             return {
