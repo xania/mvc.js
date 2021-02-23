@@ -28,7 +28,7 @@ export function RouterOutlet<TView>(
                 "router-outlet-container",
             ]);
 
-            const childRoutes$ = new Rx.Subject<string[]>();
+            const childRoutes$ = new Rx.BehaviorSubject<string[]>([]);
             const { router, onResolved } = props;
             const subsc = router.start(executeView).subscribe({
                 next([viewResults, remaining]) {
@@ -60,7 +60,7 @@ export function RouterOutlet<TView>(
                     url,
                     params,
                     childRouter(map) {
-                        return createRouter(childRoutes$, map);
+                        return createRouter(childRoutes$, map, this);
                     },
                 };
                 const templates = flatTree([...children, view], (item) =>

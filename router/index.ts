@@ -190,17 +190,20 @@ function startsWith(route: Path, base: Path) {
 
 export interface Router<TView> {
     start(executor: ViewExecutor<TView>): Rx.Observable<[ViewResult[], Path]>;
+    parent: Router<unknown>;
 }
 
 export function createRouter<TView>(
     routes$: Rx.Observable<string[]>,
-    mapping: ViewResolver<TView> | RouteInput<TView>[]
+    mapping: ViewResolver<TView> | RouteInput<TView>[],
+    parent?: Router<unknown>
 ) {
     const viewResolver = isViewResolver(mapping)
         ? mapping
         : createViewResolver(mapping);
 
     return {
+        parent,
         start(executor: ViewExecutor<TView>) {
             return startRouter(routes$, viewResolver).pipe(
                 Ro.scan(createScanner(executor), [[], []])
