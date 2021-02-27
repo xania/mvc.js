@@ -1,20 +1,14 @@
 import { IDriver, disposeMany } from "glow.js";
-import { flatTree, renderMany } from "glow.js/lib/tpl";
-import {
-    RouteInput,
-    ViewContext,
-    createRouter,
-    Router,
-    ViewResult,
-    ViewResolution,
-    Resolved,
-} from "../router";
+import { asTemplate, flatTree, render, renderMany } from "glow.js/lib/tpl";
+import { ViewContext, createRouter, Router, Resolved } from "../router";
 import "./outlet.scss";
 import * as Rx from "rxjs";
+import * as Ro from "rxjs/operators";
 import { UrlHelper } from "../router/url-helper";
 
 interface RouterOutletProps<TView> {
     router: Router<TView>;
+    loader?: any;
     onResolved?: (paths: string[][]) => void;
 }
 
@@ -56,6 +50,7 @@ export function RouterOutlet<TView>(
                 url: UrlHelper
             ) {
                 const { view, params } = resolution;
+
                 const context = {
                     url,
                     params,
@@ -67,7 +62,10 @@ export function RouterOutlet<TView>(
                     applyChild(item, context)
                 );
                 const scope = driver.createScope();
-                const bindings = renderMany(scope, templates);
+                const bindings = render(
+                    scope,
+                    withLoader(templates, props.loader || "loading...")
+                );
                 return {
                     dispose() {
                         disposeMany(bindings);
@@ -80,9 +78,18 @@ export function RouterOutlet<TView>(
 }
 
 function applyChild(child, context: ViewContext) {
-    if (typeof child === "function") {
-        return child(context);
-    } else {
-        return child;
+    return typeof child === "function" ? child(context) : child;
+}
+
+function withLoader(templates: any[], loader: any) {
+    const promises = templates.filter(isPromise);
+    if (promises.length == 0) {
+        return templates;
     }
+
+    return asTemplate(Rx.forkJoin(promises).pipe(Ro.startWith(loader)));
+}
+
+function isPromise(x): x is Promise<any> {
+    return !!x && typeof x.then == "function";
 }
