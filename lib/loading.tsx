@@ -1,13 +1,10 @@
 import {
-    BehaviorSubject,
     Unsubscribable,
     PartialObserver,
-    Operator,
     OperatorFunction,
     Observable,
     Subject,
     from,
-    pipe,
     Subscribable,
 } from "rxjs";
 import * as Ro from "rxjs/operators";
