@@ -256,11 +256,9 @@ function startRouter<TView>(
     let prev: LinkedList<Resolved<TView>> = null;
     return routes$.pipe(
         Ro.concatMap(async (route) => {
-            const {
-                unchanged,
-                remainingRoute,
-                resolve,
-            } = unchangedResolutions<TView>(route, prev);
+            const { unchanged, remainingRoute, resolve } = unchangedResolutions<
+                TView
+            >(route, prev);
             const newResolutions = await traverse(
                 remainingRoute,
                 resolve || rootResolve
@@ -294,14 +292,9 @@ function unchangedResolutions<TView>(
 
     const { head } = prevlist;
     if (isValidResolution(head, route)) {
-        const {
-            unchanged,
-            remainingRoute,
-            resolve,
-        } = unchangedResolutions<TView>(
-            route.slice(head.appliedPath.length),
-            prevlist.tail
-        );
+        const { unchanged, remainingRoute, resolve } = unchangedResolutions<
+            TView
+        >(route.slice(head.appliedPath.length), prevlist.tail);
         return {
             unchanged: cons(head, unchanged),
             remainingRoute,
@@ -499,7 +492,7 @@ function empty<T>() {
 function memoize<TF extends (...args: any[]) => any>(fn: TF) {
     let result = null;
     let invoked = false;
-    return function (...args: Parameters<TF>): ReturnType<TF> {
+    return function(...args: Parameters<TF>): ReturnType<TF> {
         if (invoked) {
             return result;
         }
@@ -511,7 +504,7 @@ function memoize<TF extends (...args: any[]) => any>(fn: TF) {
 function fromComponentRoute<TView>(
     path: string[],
     component: () => Component<TView>
-): Route<TView> {
+): Route<TView | Component<TView>> {
     const mem = memoize(() => {
         const comp = typeof component === "function" ? component() : component;
         const view = "view" in comp ? comp.view : comp;

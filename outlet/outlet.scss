@@ -18,6 +18,7 @@ nav {
     & > .router-page {
         box-sizing: border-box;
         max-width: 100%;
+        min-height: 100%;
         overflow: auto;
 
         .router-page__content {
