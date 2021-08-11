@@ -194,23 +194,27 @@ function startsWith(route: Path, base: Path) {
 
 export interface Router<TView> {
   start(executor: ViewExecutor<TView>): Rx.Observable<[ViewResult[], Path]>;
-  parent: Router<unknown>;
+  parentContext: RouterContext;
+}
+
+interface RouterContext {
+  url: UrlHelper;
 }
 
 export function createRouter<TView>(
   routes$: Rx.Observable<string[]>,
   mapping: ViewResolver<TView> | RouteInput<TView>[],
-  parent?: Router<unknown>
+  parentContext?: RouterContext
 ) {
   const viewResolver = isViewResolver(mapping)
     ? mapping
     : createViewResolver(mapping);
 
   return {
-    parent,
+    parentContext,
     start(executor: ViewExecutor<TView>) {
       return startRouter(routes$, viewResolver).pipe(
-        Ro.scan(createScanner(executor), [[], []])
+        Ro.scan(createScanner(executor, parentContext), [[], []])
       );
     },
   };
@@ -220,7 +224,10 @@ export function createRouter<TView>(
     LinkedList<Resolved<TView>>,
     Path
   ];
-  function createScanner(executor: ViewExecutor<TView>) {
+  function createScanner(
+    executor: ViewExecutor<TView>,
+    parentContext: RouterContext
+  ) {
     return function scan(
       [prev]: [ViewResult[], Path],
       next: RouteResolution
@@ -239,8 +246,12 @@ export function createRouter<TView>(
       return [entries, remaining];
 
       function execute(res: Resolved<TView>, idx: number) {
-        const parent = entries[idx + offset - 1];
-        const url = new UrlHelper(res.appliedPath, parent && parent.url);
+        const parentEntry = entries[idx + offset - 1];
+        const url = new UrlHelper(
+          res.appliedPath,
+          (parentEntry && parentEntry.url) ||
+            (parentContext && parentContext.url)
+        );
         entries[idx + offset] = {
           url,
           result: executor(res, url),
@@ -257,9 +268,8 @@ function startRouter<TView>(
   let prev: LinkedList<Resolved<TView>> = null;
   return routes$.pipe(
     Ro.concatMap(async (route) => {
-      const { unchanged, remainingRoute, resolve } = unchangedResolutions<
-        TView
-      >(route, prev);
+      const { unchanged, remainingRoute, resolve } =
+        unchangedResolutions<TView>(route, prev);
       const newResolutions = await traverse(
         remainingRoute,
         resolve || rootResolve
@@ -486,7 +496,7 @@ function empty<T>() {
 function memoize<TF extends (...args: any[]) => any>(fn: TF) {
   let result = null;
   let invoked = false;
-  return function(...args: Parameters<TF>): ReturnType<TF> {
+  return function (...args: Parameters<TF>): ReturnType<TF> {
     if (invoked) {
       return result;
     }
