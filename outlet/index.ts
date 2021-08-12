@@ -18,10 +18,6 @@ export function RouterOutlet<TView>(
 ) {
   return {
     render(driver: IDriver) {
-      const classBinding = driver.createAttribute("class", [
-        "router-outlet-container",
-      ]);
-
       const childRoutes$ = new Rx.BehaviorSubject<string[]>([]);
       const { router, onResolved } = props;
       const subsc = router.start(executeView).subscribe({
@@ -41,7 +37,6 @@ export function RouterOutlet<TView>(
       return {
         dispose() {
           subsc.unsubscribe();
-          classBinding.dispose();
         },
       };
 
