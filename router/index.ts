@@ -26,14 +26,14 @@ export interface RouteDescriptor<TView> {
   routes?: RouteInput<TView>[];
 }
 
-export interface Component<TView = unknown> {
+export interface RouterComponent<TView = unknown> {
   view: TView;
   routes?: RouteInput<TView>[];
 }
 
 interface ComponentRoute<TView> {
   path: Path;
-  component: () => Component<TView>;
+  component: () => RouterComponent<TView>;
 }
 
 function isRouteDescriptor(value: any): value is RouteDescriptor<any> {
@@ -160,14 +160,24 @@ type ViewExecutor<TView> = (
   url: UrlHelper
 ) => Disposable;
 
-export function browserRoutes(virtualPath: Path): Rx.Observable<Path> {
-  return Rx.timer(0, 50).pipe(
-    Ro.map(() => location.pathname),
-    Ro.distinctUntilChanged(),
-    Ro.map((pathname: string) => pathname.split("/").filter((x) => !!x)),
-    Ro.filter((route) => startsWith(route, virtualPath)),
-    Ro.map((route) => route.slice(virtualPath.length))
-  );
+export interface Browser {
+  routes: Rx.Observable<Path>;
+  execute(path: string[]);
+}
+
+export function createBrowser(virtualPath: Path): Browser {
+  return {
+    routes: Rx.timer(0, 50).pipe(
+      Ro.map(() => location.pathname),
+      Ro.distinctUntilChanged(),
+      Ro.map((pathname: string) => pathname.split("/").filter((x) => !!x)),
+      Ro.filter((route) => startsWith(route, virtualPath)),
+      Ro.map((route) => route.slice(virtualPath.length))
+    ),
+    execute(path: string[]) {
+      pushPath(path.join("/"));
+    },
+  };
 }
 
 function startsWith(route: Path, base: Path) {
@@ -195,14 +205,21 @@ function startsWith(route: Path, base: Path) {
 export interface Router<TView> {
   start(executor: ViewExecutor<TView>): Rx.Observable<[ViewResult[], Path]>;
   parentContext: RouterContext;
+  navigator: Navigator;
+}
+
+interface Navigator {
+  execute(path: string[]);
 }
 
 interface RouterContext {
   url: UrlHelper;
+  navigator: Navigator;
 }
 
 export function createRouter<TView>(
-  routes$: Rx.Observable<string[]>,
+  navigator: Navigator,
+  routes$: Rx.Observable<Path>,
   mapping: ViewResolver<TView> | RouteInput<TView>[],
   parentContext?: RouterContext
 ) {
@@ -211,6 +228,7 @@ export function createRouter<TView>(
     : createViewResolver(mapping);
 
   return {
+    navigator,
     parentContext,
     start(executor: ViewExecutor<TView>) {
       return startRouter(routes$, viewResolver).pipe(
@@ -248,6 +266,7 @@ export function createRouter<TView>(
       function execute(res: Resolved<TView>, idx: number) {
         const parentEntry = entries[idx + offset - 1];
         const url = new UrlHelper(
+          navigator,
           res.appliedPath,
           (parentEntry && parentEntry.url) ||
             (parentContext && parentContext.url)
@@ -507,8 +526,8 @@ function memoize<TF extends (...args: any[]) => any>(fn: TF) {
 
 function fromComponentRoute<TView>(
   path: PathTemplate,
-  component: () => Component<TView>
-): Route<TView | Component<TView>> {
+  component: () => RouterComponent<TView>
+): Route<TView | RouterComponent<TView>> {
   const mem = memoize(() => {
     const comp = typeof component === "function" ? component() : component;
     const view = "view" in comp ? comp.view : comp;
@@ -548,4 +567,17 @@ function isSameResolution<TView>(x: Resolved<TView>, y: Resolved<TView>) {
   }
 
   return true;
+}
+
+function pushPath(pathname: string) {
+  let { pathname: old } = window.location;
+
+  if (old + "/" === pathname) {
+    console.log("replaceState", pathname);
+    window.history.replaceState(null, null, pathname);
+  } else if (old !== pathname) {
+    window.history.pushState(null, null, pathname);
+  } else {
+    // console.error("same as ", pathname);
+  }
 }

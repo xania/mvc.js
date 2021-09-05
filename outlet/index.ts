@@ -4,7 +4,7 @@ import { ViewContext, createRouter, Router, Resolved } from "../router";
 import "./outlet.scss";
 import * as Rx from "rxjs";
 import * as Ro from "rxjs/operators";
-import { UrlHelper } from "../router/url-helper";
+import { UrlHelper, Navigator } from "../router/url-helper";
 
 interface RouterOutletProps<TView> {
   router: Router<TView>;
@@ -47,7 +47,7 @@ export function RouterOutlet<TView>(
           url,
           params,
           childRouter(map) {
-            return createRouter(childRoutes$, map, this);
+            return createRouter(router.navigator, childRoutes$, map, this);
           },
         };
         const templates = flatTree([...children, view], (item) =>

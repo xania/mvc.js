@@ -1,5 +1,12 @@
+export interface Navigator {
+  execute(path: string[]);
+}
 export class UrlHelper {
-  constructor(public path: string[], public parent?: UrlHelper) {}
+  constructor(
+    public navigator: Navigator,
+    public path: string[],
+    public parent?: UrlHelper
+  ) {}
 
   stringify(...path: string[]) {
     const result = fullPath(this);
@@ -12,6 +19,11 @@ export class UrlHelper {
     result.push.apply(result, path);
     return result;
   }
+
+  navigate = (...path: string[]) => {
+    const route = this.route(...path);
+    this.navigator.execute(route);
+  };
 }
 
 function fullPath(url: UrlHelper) {
