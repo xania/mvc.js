@@ -339,13 +339,9 @@ function isValidResolution<TView>(
   result: ViewResolution<TView>,
   remainingPath: string[]
 ): boolean {
-  if (!remainingPath || remainingPath.length === 0) {
-    return false;
-  }
-
   if (result && "view" in result) {
     const { appliedPath } = result;
-    if (appliedPath.length === 0 && remainingPath.length > 0) {
+    if (appliedPath.length > remainingPath.length) {
       return false;
     }
     for (let i = 0; i < appliedPath.length; i++) {

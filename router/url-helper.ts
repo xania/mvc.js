@@ -1,6 +1,8 @@
 export interface Navigator {
   execute(path: string[]);
 }
+
+/* deze gebruiken */
 export class UrlHelper {
   constructor(
     public navigator: Navigator,
