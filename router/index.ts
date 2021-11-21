@@ -85,7 +85,7 @@ function pathMatcher(pathTemplate: PathTemplate) {
   const matchers = compilePathTemplate(pathTemplate);
   return (path: Path) => {
     const { length } = pathTemplate;
-    if (length === 0 && path.length > 0) {
+    if ((length === 0 && path.length > 0) || length > path.length) {
       return null;
     }
     const params = {};
