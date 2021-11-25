@@ -1,5 +1,5 @@
-import { IDriver, disposeMany } from "glow.js";
-import { asTemplate, flatTree, render, renderMany } from "glow.js/lib/tpl";
+import { IDriver, disposeMany } from "@xania/glow.js";
+import { asTemplate, flatTree, render } from "@xania/glow.js/lib/tpl";
 import { ViewContext, createRouter, Router, Resolved } from "../router";
 import "./outlet.scss";
 import * as Rx from "rxjs";

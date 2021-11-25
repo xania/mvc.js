@@ -1,13 +1,13 @@
 {
-    "name": "mvcjs",
-    "version": "1.0.0",
-    "description": "Xania Mvc JS",
-    "main": "index.js",
-    "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "build": "npx webpack",
-        "start": "npx http-server"
-    },
-    "author": "",
-    "license": "MIT"
+  "name": "@xania/mvc.js",
+  "version": "1.0.0",
+  "description": "Xania Mvc JS",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npx webpack",
+    "start": "npx http-server"
+  },
+  "author": "",
+  "license": "MIT"
 }
