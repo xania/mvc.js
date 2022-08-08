@@ -409,7 +409,7 @@ export function createViewResolver<TView>(
 }
 
 function isArrayEmpty(arr: any[]) {
-  return !Array.isArray(arr) || arr.length === 0;
+  return !(arr instanceof Array) || arr.length === 0;
 }
 
 function map<T, U>(
