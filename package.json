@@ -9,5 +9,8 @@
     "start": "npx http-server"
   },
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "peerDependencies": {
+    "rxjs": "7.5.6"
+  }
 }
